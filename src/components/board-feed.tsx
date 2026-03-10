@@ -46,14 +46,12 @@ export function BoardFeed({
   const hasMore = visibleCount < sortedResponses.length;
 
   return (
-    <section data-purpose="post-feed">
-      <div className="mb-6 flex flex-col gap-4 sm:mb-8 lg:flex-row lg:items-end lg:justify-between">
+    <section className="space-y-6" data-purpose="thoughts-grid">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h3 className="text-2xl font-bold tracking-tight text-[#5d4037]">
-            모두의 카드 보드
-          </h3>
+          <h3 className="text-2xl font-bold tracking-tight text-[#5d4037]">모두의 생각 카드</h3>
           <p className="mt-1 text-sm leading-6 text-[#8d6e63]">
-            친구들의 생각을 카드처럼 모아 보고 하트와 댓글로 반응해 보세요.
+            친구들의 글을 읽고 하트와 댓글로 따뜻하게 반응해 보세요.
           </p>
         </div>
 
@@ -91,16 +89,14 @@ export function BoardFeed({
 
       {sortedResponses.length === 0 ? (
         <div className="rounded-[2rem] border border-dashed border-[#ead6d0] bg-white px-6 py-14 text-center shadow-[0_10px_24px_rgba(190,146,146,0.06)]">
-          <p className="text-base font-semibold text-[#5d4037]">
-            아직 올라온 생각이 없습니다.
-          </p>
+          <p className="text-base font-semibold text-[#5d4037]">아직 올라온 생각이 없습니다.</p>
           <p className="mt-2 text-sm leading-6 text-[#8d6e63]">
-            오른쪽 아래의 + 버튼을 눌러 첫 번째 생각을 남겨 보세요.
+            오른쪽 아래의 버튼을 눌러 첫 번째 생각을 남겨 보세요.
           </p>
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
             {visibleResponses.map((response) => (
               <BoardResponseCard
                 key={response.id}
@@ -113,7 +109,7 @@ export function BoardFeed({
           </div>
 
           {hasMore ? (
-            <div className="mt-10 text-center sm:mt-12">
+            <div className="text-center">
               <button
                 type="button"
                 onClick={() => setVisibleCount((current) => current + PAGE_SIZE)}

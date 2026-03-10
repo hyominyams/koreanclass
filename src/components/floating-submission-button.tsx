@@ -47,19 +47,18 @@ export function FloatingSubmissionButton({
   return (
     <>
       <div
-        className="group fixed right-4 z-30 sm:right-6 lg:right-8"
+        className="group fixed right-4 z-30 sm:right-8"
         style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))" }}
       >
         <button
           type="button"
           onClick={() => setOpen(true)}
           title="내 생각 남기기"
-          className="flex size-14 items-center justify-center rounded-full bg-[#f598a8] text-white shadow-[0_18px_34px_rgba(245,152,168,0.38)] transition-all hover:-translate-y-1 hover:bg-[#ef8799] hover:shadow-[0_22px_40px_rgba(245,152,168,0.42)] sm:size-16"
+          className="flex size-14 items-center justify-center rounded-full bg-[#ff9eaa] text-white shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl sm:size-16"
         >
-          <Plus className="size-7 transition-transform duration-300 group-hover:rotate-90 sm:size-8" />
+          <Plus className="size-7 transition-transform group-hover:rotate-90 sm:size-8" />
         </button>
-
-        <span className="pointer-events-none absolute top-1/2 right-20 hidden -translate-y-1/2 whitespace-nowrap rounded-xl bg-[#5d4037] px-3 py-1.5 text-xs font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100 md:block">
+        <span className="pointer-events-none absolute top-1/2 right-20 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#5d4037] px-3 py-1.5 text-xs font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100 md:block">
           내 생각 남기기
         </span>
       </div>
@@ -70,7 +69,7 @@ export function FloatingSubmissionButton({
           onClick={() => setOpen(false)}
         >
           <div
-            className="max-h-[92vh] w-full overflow-hidden rounded-t-[2rem] border border-[#f0dedd] bg-white shadow-[0_30px_80px_rgba(146,101,101,0.22)] sm:max-w-xl sm:rounded-[2rem]"
+            className="max-h-[92vh] w-full overflow-hidden rounded-t-[2rem] bg-white shadow-[0_30px_80px_rgba(146,101,101,0.22)] sm:max-w-2xl sm:rounded-[2rem]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4 border-b border-[#f1e2de] bg-[#fff7f5] px-5 py-5 sm:px-6 md:px-8">
@@ -81,7 +80,7 @@ export function FloatingSubmissionButton({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="shrink-0 text-[#b08a80] transition-colors hover:text-[#8d6e63]"
+                className="shrink-0 text-[#8d6e63] transition-colors hover:text-[#5d4037]"
                 aria-label="모달 닫기"
               >
                 <X className="size-6" />

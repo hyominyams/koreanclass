@@ -10,7 +10,10 @@ import {
 import { useFormStatus } from "react-dom";
 
 import { type ActionState, submitResponseAction } from "@/app/actions";
-import type { StudentProfile } from "@/lib/student-profile";
+import {
+  getStudentProfileGradeClass,
+  type StudentProfile,
+} from "@/lib/student-profile";
 
 type SubmissionFormProps = {
   topicId: string;
@@ -23,9 +26,6 @@ type SubmissionFormProps = {
 const initialState: ActionState = {
   status: "idle",
 };
-
-const textareaClassName =
-  "w-full rounded-2xl border border-[#ecd8d2] bg-[#fff7f5] px-4 py-3 text-base text-[#5d4037] outline-none transition focus:border-[#f29cab] focus:bg-white focus:ring-4 focus:ring-[#fde6eb] disabled:cursor-not-allowed disabled:bg-[#f7eeeb] disabled:text-[#b8a19a] sm:text-sm";
 
 function SubmitButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
@@ -81,13 +81,15 @@ export function SubmissionForm({
             <p className="truncate text-sm font-semibold text-[#5d4037]">
               {profile.authorName} 학생
             </p>
-            <p className="truncate text-xs text-[#8d6e63]">{profile.gradeClass}</p>
+            <p className="truncate text-xs text-[#8d6e63]">
+              {getStudentProfileGradeClass(profile)}
+            </p>
           </div>
         </div>
       ) : (
         <div className="flex items-start gap-3 rounded-[1.5rem] border border-[#f2cfd7] bg-[#fff1f4] px-4 py-4 text-sm leading-6 text-[#9c5f6c]">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-          <p>학생 정보가 없어 글을 작성할 수 없습니다. 학년 반과 이름을 먼저 설정해 주세요.</p>
+          <p>학생 정보가 없어 글을 작성할 수 없습니다. 학년 반과 이름을 먼저 입력해 주세요.</p>
         </div>
       )}
 
@@ -122,8 +124,13 @@ export function SubmissionForm({
 
       <form ref={formRef} action={formAction} className="space-y-6">
         <input type="hidden" name="topicId" value={topicId} />
-        <input type="hidden" name="gradeClass" value={profile?.gradeClass ?? ""} />
         <input type="hidden" name="authorName" value={profile?.authorName ?? ""} />
+        <input
+          type="hidden"
+          name="gradeClass"
+          value={profile ? getStudentProfileGradeClass(profile) : ""}
+        />
+        <input type="hidden" name="authorSecretHash" value={profile?.secretHash ?? ""} />
 
         <label className="block">
           <span className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-[#b08a80]">
@@ -133,8 +140,8 @@ export function SubmissionForm({
             id={`content-${topicId}`}
             name="content"
             rows={6}
-            className={`${textareaClassName} min-h-40 resize-y`}
-            placeholder="교실과 주제에 대해 제안하고 싶은 내용을 자유롭게 적어주세요."
+            className="min-h-40 w-full resize-y rounded-2xl border border-[#ecd8d2] bg-[#fff7f5] px-4 py-3 text-base text-[#5d4037] outline-none transition focus:border-[#f29cab] focus:bg-white focus:ring-4 focus:ring-[#fde6eb] disabled:cursor-not-allowed disabled:bg-[#f7eeeb] disabled:text-[#b8a19a] sm:text-sm"
+            placeholder="주제에 대한 생각을 자유롭게 적어 주세요."
             disabled={!submissionsEnabled || !profile}
           />
         </label>

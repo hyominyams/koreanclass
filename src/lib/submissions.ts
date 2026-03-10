@@ -11,7 +11,11 @@ import {
   type ResponseItem,
   type TopicSummary,
 } from "@/lib/discussions";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import {
+  createSupabaseAdminClient,
+  isSupabaseAdminConfigured,
+  isSupabaseConfigured,
+} from "@/lib/supabase";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getTopicByIdFromSource,
@@ -26,6 +30,12 @@ type SubmissionRow = {
   perspective: string;
   content: string;
   submitted_at: string;
+};
+
+type SubmissionOwnershipRow = {
+  id: string;
+  topic_id: string;
+  author_secret_hash: string;
 };
 
 type CommentRow = {
@@ -46,8 +56,22 @@ export type SubmissionInput = {
   topicId: string;
   authorName: string;
   gradeClass: string;
+  authorSecretHash: string;
   content: string;
   perspective?: string;
+};
+
+export type UpdateSubmissionInput = {
+  topicId: string;
+  submissionId: string;
+  secretHash: string;
+  content: string;
+};
+
+export type DeleteSubmissionInput = {
+  topicId: string;
+  submissionId: string;
+  secretHash: string;
 };
 
 export type CommentInput = {
@@ -75,6 +99,9 @@ export type SetupState = {
   boardUpdatedAt: string;
 };
 
+const DEFAULT_GRADE_CLASS = "6학년 1반";
+const DEFAULT_PERSPECTIVE = "학생 생각";
+
 function extractKeywords(content: string, perspective: string) {
   const tokens = `${perspective} ${content}`
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
@@ -90,7 +117,7 @@ function mapCommentRow(row: CommentRow): BoardComment {
     id: row.id,
     submissionId: row.submission_id,
     author: row.commenter_name,
-    gradeClass: row.commenter_grade_class?.trim() || "6학년 1반",
+    gradeClass: row.commenter_grade_class?.trim() || DEFAULT_GRADE_CLASS,
     content: row.content,
     createdAt: row.created_at,
   };
@@ -131,7 +158,7 @@ function buildSubmissionRecords(
       id: row.id,
       topicId: row.topic_id,
       author: row.author_name,
-      gradeClass: row.grade_class?.trim() || "6학년 1반",
+      gradeClass: row.grade_class?.trim() || DEFAULT_GRADE_CLASS,
       perspective: row.perspective,
       content: row.content,
       keywords: extractKeywords(row.content, row.perspective),
@@ -165,12 +192,53 @@ async function fetchInteractionRows(client: SupabaseClient | null, submissionIds
       )
       .in("submission_id", submissionIds)
       .order("created_at", { ascending: true }),
-    client.from("submission_hearts").select("id, submission_id").in("submission_id", submissionIds),
+    client
+      .from("submission_hearts")
+      .select("id, submission_id")
+      .in("submission_id", submissionIds),
   ]);
 
   return {
     commentRows: commentsResult.error ? [] : (commentsResult.data satisfies CommentRow[]),
     heartRows: heartsResult.error ? [] : (heartsResult.data satisfies HeartRow[]),
+  };
+}
+
+async function getAdminSubmissionClient() {
+  if (!isSupabaseAdminConfigured()) {
+    return null;
+  }
+
+  return createSupabaseAdminClient();
+}
+
+async function readSubmissionOwnership(submissionId: string) {
+  const client = await getAdminSubmissionClient();
+
+  if (!client) {
+    return {
+      client: null,
+      row: null,
+    };
+  }
+
+  const { data, error } = await client
+    .from("submissions")
+    .select("id, topic_id, author_secret_hash")
+    .eq("id", submissionId)
+    .single();
+
+  if (error) {
+    console.error("Failed to read submission ownership from Supabase.", error);
+    return {
+      client,
+      row: null,
+    };
+  }
+
+  return {
+    client,
+    row: data satisfies SubmissionOwnershipRow,
   };
 }
 
@@ -365,8 +433,9 @@ export async function createSubmission(input: SubmissionInput) {
   const { error } = await client.from("submissions").insert({
     topic_id: input.topicId,
     author_name: input.authorName.trim(),
-    grade_class: input.gradeClass.trim() || "6학년 1반",
-    perspective: input.perspective?.trim() || "학생 의견",
+    grade_class: input.gradeClass.trim() || DEFAULT_GRADE_CLASS,
+    author_secret_hash: input.authorSecretHash,
+    perspective: input.perspective?.trim() || DEFAULT_PERSPECTIVE,
     content: input.content.trim(),
   });
 
@@ -376,7 +445,8 @@ export async function createSubmission(input: SubmissionInput) {
     if (error.code === "PGRST205") {
       return {
         ok: false,
-        message: "submissions 테이블이 아직 준비되지 않았습니다. 관리자에게 migration 적용을 요청해 주세요.",
+        message:
+          "submissions 테이블이 아직 준비되지 않았습니다. 관리자에게 migration 적용을 요청해 주세요.",
       };
     }
 
@@ -388,7 +458,125 @@ export async function createSubmission(input: SubmissionInput) {
 
   return {
     ok: true,
-    message: `${topic.title} 보드에 글을 올렸습니다.`,
+    message: `${topic.title} 주제에 글을 올렸습니다.`,
+  };
+}
+
+export async function updateSubmission(input: UpdateSubmissionInput) {
+  if (!isSupabaseConfigured()) {
+    return {
+      ok: false,
+      message: "Supabase 연결 정보가 없어 글을 수정할 수 없습니다.",
+    };
+  }
+
+  const { client, row } = await readSubmissionOwnership(input.submissionId);
+
+  if (!client) {
+    return {
+      ok: false,
+      message:
+        "게시글 수정 기능을 사용하려면 SUPABASE_SERVICE_ROLE_KEY 환경변수가 필요합니다.",
+    };
+  }
+
+  if (!row || row.topic_id !== input.topicId) {
+    return {
+      ok: false,
+      message: "수정할 게시글을 찾을 수 없습니다.",
+    };
+  }
+
+  if (!row.author_secret_hash) {
+    return {
+      ok: false,
+      message: "이 게시글은 암호 기반 수정이 지원되지 않습니다.",
+    };
+  }
+
+  if (row.author_secret_hash !== input.secretHash) {
+    return {
+      ok: false,
+      message: "암호가 올바르지 않습니다.",
+    };
+  }
+
+  const { error } = await client
+    .from("submissions")
+    .update({
+      content: input.content.trim(),
+    })
+    .eq("id", input.submissionId);
+
+  if (error) {
+    console.error("Failed to update a submission in Supabase.", error);
+    return {
+      ok: false,
+      message: "게시글을 수정하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    };
+  }
+
+  return {
+    ok: true,
+    message: "게시글을 수정했습니다.",
+  };
+}
+
+export async function deleteSubmission(input: DeleteSubmissionInput) {
+  if (!isSupabaseConfigured()) {
+    return {
+      ok: false,
+      message: "Supabase 연결 정보가 없어 글을 삭제할 수 없습니다.",
+    };
+  }
+
+  const { client, row } = await readSubmissionOwnership(input.submissionId);
+
+  if (!client) {
+    return {
+      ok: false,
+      message:
+        "게시글 삭제 기능을 사용하려면 SUPABASE_SERVICE_ROLE_KEY 환경변수가 필요합니다.",
+    };
+  }
+
+  if (!row || row.topic_id !== input.topicId) {
+    return {
+      ok: false,
+      message: "삭제할 게시글을 찾을 수 없습니다.",
+    };
+  }
+
+  if (!row.author_secret_hash) {
+    return {
+      ok: false,
+      message: "이 게시글은 암호 기반 삭제가 지원되지 않습니다.",
+    };
+  }
+
+  if (row.author_secret_hash !== input.secretHash) {
+    return {
+      ok: false,
+      message: "암호가 올바르지 않습니다.",
+    };
+  }
+
+  const { error } = await client
+    .from("submissions")
+    .delete()
+    .eq("id", input.submissionId);
+
+  if (error) {
+    console.error("Failed to delete a submission in Supabase.", error);
+    return {
+      ok: false,
+      message: "게시글을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    };
+  }
+
+  return {
+    ok: true,
+    message: "게시글을 삭제했습니다.",
   };
 }
 
@@ -412,13 +600,12 @@ export async function createComment(input: CommentInput) {
   const { error } = await client.from("submission_comments").insert({
     submission_id: input.submissionId,
     commenter_name: input.commenterName.trim(),
-    commenter_grade_class: input.commenterGradeClass.trim() || "6학년 1반",
+    commenter_grade_class: input.commenterGradeClass.trim() || DEFAULT_GRADE_CLASS,
     content: input.content.trim(),
   });
 
   if (error) {
     console.error("Failed to create a comment in Supabase.", error);
-
     return {
       ok: false,
       message: "댓글을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
@@ -427,7 +614,7 @@ export async function createComment(input: CommentInput) {
 
   return {
     ok: true,
-    message: "댓글이 등록되었습니다.",
+    message: "댓글을 등록했습니다.",
   };
 }
 
@@ -454,7 +641,6 @@ export async function addHeart(input: HeartInput) {
 
   if (error) {
     console.error("Failed to create a heart in Supabase.", error);
-
     return {
       ok: false,
       message: "하트를 남기지 못했습니다. 잠시 후 다시 시도해 주세요.",

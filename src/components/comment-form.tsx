@@ -5,7 +5,10 @@ import { CheckCircle2, LoaderCircle, MessageSquarePlus, TriangleAlert } from "lu
 import { useFormStatus } from "react-dom";
 
 import { type ActionState, createCommentAction } from "@/app/actions";
-import type { StudentProfile } from "@/lib/student-profile";
+import {
+  getStudentProfileGradeClass,
+  type StudentProfile,
+} from "@/lib/student-profile";
 
 type CommentFormProps = {
   topicId: string;
@@ -18,16 +21,13 @@ const initialState: ActionState = {
   status: "idle",
 };
 
-const textareaClassName =
-  "w-full rounded-2xl border border-[#ecd8d2] bg-white px-4 py-3 text-base text-[#5d4037] outline-none transition focus:border-[#f29cab] focus:ring-4 focus:ring-[#fde6eb] disabled:cursor-not-allowed disabled:bg-[#f7eeeb] disabled:text-[#b8a19a] sm:text-sm";
-
 function CommentSubmitButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
 
   return (
     <button
       type="submit"
-      className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[#f598a8] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#ef8799] disabled:cursor-not-allowed disabled:bg-[#d9c5c1] sm:w-auto"
+      className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full bg-[#f598a8] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#ef8799] disabled:cursor-not-allowed disabled:bg-[#d9c5c1] sm:w-auto"
       disabled={pending || disabled}
     >
       {pending ? (
@@ -59,8 +59,16 @@ export function CommentForm({
     <form ref={formRef} action={formAction} className="space-y-3 rounded-[1.5rem] border border-[#f0dedd] bg-white p-4">
       <input type="hidden" name="topicId" value={topicId} />
       <input type="hidden" name="submissionId" value={submissionId} />
-      <input type="hidden" name="commenterGradeClass" value={profile?.gradeClass ?? ""} />
-      <input type="hidden" name="commenterName" value={profile?.authorName ?? ""} />
+      <input
+        type="hidden"
+        name="commenterName"
+        value={profile?.authorName ?? ""}
+      />
+      <input
+        type="hidden"
+        name="commenterGradeClass"
+        value={profile ? getStudentProfileGradeClass(profile) : ""}
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         {profile ? (
@@ -69,12 +77,12 @@ export function CommentForm({
               {profile.authorName.slice(0, 1)}
             </span>
             <span>
-              {profile.gradeClass} · {profile.authorName}
+              {getStudentProfileGradeClass(profile)} · {profile.authorName}
             </span>
           </div>
         ) : (
           <div className="rounded-full bg-[#fff1f4] px-3 py-1.5 text-xs font-semibold text-[#9c5f6c]">
-            학생 정보를 먼저 설정해 주세요.
+            학생 정보를 먼저 입력해 주세요.
           </div>
         )}
 
@@ -102,7 +110,7 @@ export function CommentForm({
         id={`comment-content-${submissionId}`}
         name="content"
         rows={3}
-        className={`${textareaClassName} min-h-24 resize-y`}
+        className="w-full rounded-2xl border border-[#ecd8d2] bg-white px-4 py-3 text-sm text-[#5d4037] outline-none transition focus:border-[#f29cab] focus:ring-4 focus:ring-[#fde6eb] disabled:cursor-not-allowed disabled:bg-[#f7eeeb] disabled:text-[#b8a19a]"
         placeholder="공감한 점이나 더 묻고 싶은 점을 짧게 남겨 보세요."
         disabled={!enabled || !profile}
       />

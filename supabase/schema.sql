@@ -30,7 +30,10 @@ create table if not exists public.submissions (
   topic_id text not null references public.topics (id) on delete cascade,
   author_name text not null check (char_length(author_name) between 1 and 24),
   grade_class text not null default '6학년 1반' check (char_length(grade_class) between 1 and 32),
-  perspective text not null default '학생 의견',
+  author_secret_hash text not null default '' check (
+    author_secret_hash = '' or author_secret_hash ~ '^[0-9a-f]{64}$'
+  ),
+  perspective text not null default '학생 생각',
   content text not null check (char_length(content) between 10 and 1200),
   submitted_at timestamptz not null default now()
 );
@@ -68,7 +71,26 @@ alter table public.submission_comments enable row level security;
 alter table public.submission_hearts enable row level security;
 
 grant select on public.topics to anon, authenticated;
-grant select, insert on public.submissions to anon, authenticated;
+
+revoke all on public.submissions from anon, authenticated;
+grant select (
+  id,
+  topic_id,
+  author_name,
+  grade_class,
+  perspective,
+  content,
+  submitted_at
+) on public.submissions to anon, authenticated;
+grant insert (
+  topic_id,
+  author_name,
+  grade_class,
+  author_secret_hash,
+  perspective,
+  content
+) on public.submissions to anon, authenticated;
+
 grant select, insert on public.submission_comments to anon, authenticated;
 grant select, insert on public.submission_hearts to anon, authenticated;
 
@@ -157,9 +179,9 @@ insert into public.topics (
 )
 values (
   'example-topic',
-  '[예시] 새 주제를 추가해 보세요',
+  '[예시] 새 주제를 추가해 보세요.',
   '예시',
-  '교사 계정에서 새 주제를 등록하면 이 보드 왼쪽 사이드바에 주제가 추가되고 학생들은 같은 화면에서 글을 공유할 수 있습니다.',
+  '교사 계정에서 새 주제를 등록하면 이 보드 왼쪽 사이드바에 주제가 추가되고 학생들이 같은 화면에서 글을 공유할 수 있습니다.',
   '교사가 실제 수업 주제를 추가하기 전까지 보여 주는 기본 예시 주제입니다.',
   '학생들이 부담 없이 첫 글을 시작할 수 있도록 어떤 질문으로 열어 주면 좋을까요?',
   array['예시', '공유 보드']

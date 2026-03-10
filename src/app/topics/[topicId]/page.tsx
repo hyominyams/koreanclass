@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { StudentBoardShell } from "@/components/student-board-shell";
-import { getBoardMeta } from "@/lib/discussions";
+import { formatKoreanDateTime, getBoardMeta } from "@/lib/discussions";
 import {
   getSetupState,
   getTopicResponses,
@@ -33,9 +33,6 @@ export default async function TopicPage({ params }: TopicPageProps) {
   }
 
   const activeTopicSummary = topics.find((item) => item.id === topic.id);
-  const participantCount = activeTopicSummary?.participantCount ?? 0;
-  const latestActivity =
-    activeTopicSummary?.latestResponseAt ?? setupState.boardUpdatedAt;
 
   return (
     <StudentBoardShell
@@ -45,13 +42,10 @@ export default async function TopicPage({ params }: TopicPageProps) {
       responses={responses}
       interactionsEnabled={setupState.interactionsReady}
       submissionsEnabled={setupState.submissionsReady}
-      latestActivity={new Intl.DateTimeFormat("ko-KR", {
-        month: "long",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      }).format(new Date(latestActivity))}
-      participantCount={participantCount}
+      latestActivity={formatKoreanDateTime(
+        activeTopicSummary?.latestResponseAt ?? setupState.boardUpdatedAt
+      )}
+      participantCount={activeTopicSummary?.participantCount ?? 0}
     />
   );
 }

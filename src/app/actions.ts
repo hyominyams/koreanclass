@@ -10,13 +10,24 @@ import {
   loginAdmin,
   logoutAdmin,
 } from "@/lib/admin-auth";
-import { addHeart, createComment, createSubmission } from "@/lib/submissions";
+import {
+  addHeart,
+  createComment,
+  createSubmission,
+  deleteSubmission,
+  updateSubmission,
+} from "@/lib/submissions";
 import { createTopic } from "@/lib/topics";
 
 export type ActionState = {
   status: "idle" | "success" | "error";
   message?: string;
 };
+
+const secretHashSchema = z
+  .string()
+  .trim()
+  .regex(/^[0-9a-f]{64}$/, "암호 확인에 실패했습니다.");
 
 const submissionSchema = z.object({
   topicId: z.string().trim().min(1),
@@ -30,6 +41,7 @@ const submissionSchema = z.object({
     .trim()
     .min(1, "학년 반을 입력해 주세요.")
     .max(32, "학년 반은 32자 이하로 입력해 주세요."),
+  authorSecretHash: secretHashSchema,
   content: z
     .string()
     .trim()
@@ -43,7 +55,7 @@ const commentSchema = z.object({
   commenterName: z
     .string()
     .trim()
-    .min(1, "댓글 작성 이름을 입력해 주세요.")
+    .min(1, "이름을 입력해 주세요.")
     .max(24, "이름은 24자 이하로 입력해 주세요."),
   commenterGradeClass: z
     .string()
@@ -55,6 +67,23 @@ const commentSchema = z.object({
     .trim()
     .min(2, "댓글은 최소 2자 이상 적어 주세요.")
     .max(300, "댓글은 300자 이하로 적어 주세요."),
+});
+
+const updateSubmissionSchema = z.object({
+  topicId: z.string().trim().min(1),
+  submissionId: z.string().uuid(),
+  secretHash: secretHashSchema,
+  content: z
+    .string()
+    .trim()
+    .min(10, "글은 최소 10자 이상 적어 주세요.")
+    .max(1200, "글은 1200자 이하로 적어 주세요."),
+});
+
+const deleteSubmissionSchema = z.object({
+  topicId: z.string().trim().min(1),
+  submissionId: z.string().uuid(),
+  secretHash: secretHashSchema,
 });
 
 const heartSchema = z.object({
@@ -95,6 +124,13 @@ const loginSchema = z.object({
   password: z.string().min(1, "관리자 비밀번호를 입력해 주세요."),
 });
 
+function revalidateStudentPaths(topicId: string) {
+  revalidatePath("/");
+  revalidatePath(`/write/${topicId}`);
+  revalidatePath(`/topics/${topicId}`);
+  revalidatePath("/admin");
+}
+
 export async function submitResponseAction(
   _previousState: ActionState,
   formData: FormData
@@ -103,6 +139,7 @@ export async function submitResponseAction(
     topicId: formData.get("topicId"),
     authorName: formData.get("authorName"),
     gradeClass: formData.get("gradeClass"),
+    authorSecretHash: formData.get("authorSecretHash"),
     content: formData.get("content"),
   });
 
@@ -122,10 +159,7 @@ export async function submitResponseAction(
     };
   }
 
-  revalidatePath("/");
-  revalidatePath(`/write/${parsed.data.topicId}`);
-  revalidatePath(`/topics/${parsed.data.topicId}`);
-  revalidatePath("/admin");
+  revalidateStudentPaths(parsed.data.topicId);
 
   return {
     status: "success",
@@ -161,9 +195,76 @@ export async function createCommentAction(
     };
   }
 
-  revalidatePath(`/write/${parsed.data.topicId}`);
-  revalidatePath(`/topics/${parsed.data.topicId}`);
-  revalidatePath("/admin");
+  revalidateStudentPaths(parsed.data.topicId);
+
+  return {
+    status: "success",
+    message: result.message,
+  };
+}
+
+export async function updateSubmissionAction(
+  _previousState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const parsed = updateSubmissionSchema.safeParse({
+    topicId: formData.get("topicId"),
+    submissionId: formData.get("submissionId"),
+    secretHash: formData.get("secretHash"),
+    content: formData.get("content"),
+  });
+
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: parsed.error.issues[0]?.message ?? "수정 내용을 다시 확인해 주세요.",
+    };
+  }
+
+  const result = await updateSubmission(parsed.data);
+
+  if (!result.ok) {
+    return {
+      status: "error",
+      message: result.message,
+    };
+  }
+
+  revalidateStudentPaths(parsed.data.topicId);
+
+  return {
+    status: "success",
+    message: result.message,
+  };
+}
+
+export async function deleteSubmissionAction(
+  _previousState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const parsed = deleteSubmissionSchema.safeParse({
+    topicId: formData.get("topicId"),
+    submissionId: formData.get("submissionId"),
+    secretHash: formData.get("secretHash"),
+  });
+
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: parsed.error.issues[0]?.message ?? "삭제 요청을 다시 확인해 주세요.",
+    };
+  }
+
+  const result = await deleteSubmission(parsed.data);
+
+  if (!result.ok) {
+    return {
+      status: "error",
+      message: result.message,
+    };
+  }
+
+  revalidateStudentPaths(parsed.data.topicId);
 
   return {
     status: "success",
@@ -182,10 +283,7 @@ export async function addHeartAction(formData: FormData) {
   }
 
   await addHeart(parsed.data);
-
-  revalidatePath(`/write/${parsed.data.topicId}`);
-  revalidatePath(`/topics/${parsed.data.topicId}`);
-  revalidatePath("/admin");
+  revalidateStudentPaths(parsed.data.topicId);
 }
 
 export async function createTopicAction(
