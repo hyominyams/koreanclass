@@ -10,11 +10,13 @@ import {
 import { useFormStatus } from "react-dom";
 
 import { type ActionState, submitResponseAction } from "@/app/actions";
+import type { StudentProfile } from "@/lib/student-profile";
 
 type SubmissionFormProps = {
   topicId: string;
   topicTitle: string;
   submissionsEnabled: boolean;
+  profile: StudentProfile | null;
   onSuccess?: () => void;
 };
 
@@ -22,17 +24,17 @@ const initialState: ActionState = {
   status: "idle",
 };
 
-const fieldClassName =
-  "w-full rounded-2xl border border-[#ecd8d2] bg-[#fff7f5] px-4 py-3 text-sm text-[#5d4037] outline-none transition focus:border-[#f29cab] focus:bg-white focus:ring-4 focus:ring-[#fde6eb] disabled:cursor-not-allowed disabled:bg-[#f7eeeb] disabled:text-[#b8a19a]";
+const textareaClassName =
+  "w-full rounded-2xl border border-[#ecd8d2] bg-[#fff7f5] px-4 py-3 text-base text-[#5d4037] outline-none transition focus:border-[#f29cab] focus:bg-white focus:ring-4 focus:ring-[#fde6eb] disabled:cursor-not-allowed disabled:bg-[#f7eeeb] disabled:text-[#b8a19a] sm:text-sm";
 
-function SubmitButton() {
+function SubmitButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
 
   return (
     <button
       type="submit"
-      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#f598a8] px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(245,152,168,0.28)] transition hover:bg-[#ef8799] disabled:cursor-not-allowed disabled:bg-[#d9c5c1] disabled:shadow-none"
-      disabled={pending}
+      className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#f598a8] px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(245,152,168,0.28)] transition hover:bg-[#ef8799] disabled:cursor-not-allowed disabled:bg-[#d9c5c1] disabled:shadow-none sm:w-auto"
+      disabled={pending || disabled}
     >
       {pending ? (
         <LoaderCircle className="size-4 animate-spin" />
@@ -48,6 +50,7 @@ export function SubmissionForm({
   topicId,
   topicTitle,
   submissionsEnabled,
+  profile,
   onSuccess,
 }: SubmissionFormProps) {
   const [state, formAction] = useActionState(submitResponseAction, initialState);
@@ -68,6 +71,25 @@ export function SubmissionForm({
         </p>
         <p className="mt-1 text-sm font-semibold text-[#5d4037]">{topicTitle}</p>
       </div>
+
+      {profile ? (
+        <div className="flex items-center gap-3 rounded-[1.5rem] border border-[#f0dedd] bg-white px-4 py-3">
+          <div className="flex size-11 items-center justify-center rounded-full border-2 border-[#f2c7bf] bg-[#fff0ec] text-sm font-bold text-[#9c6b5b]">
+            {profile.authorName.slice(0, 1)}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-[#5d4037]">
+              {profile.authorName} 학생
+            </p>
+            <p className="truncate text-xs text-[#8d6e63]">{profile.gradeClass}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-start gap-3 rounded-[1.5rem] border border-[#f2cfd7] bg-[#fff1f4] px-4 py-4 text-sm leading-6 text-[#9c5f6c]">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+          <p>학생 정보가 없어 글을 작성할 수 없습니다. 학년 반과 이름을 먼저 설정해 주세요.</p>
+        </div>
+      )}
 
       {!submissionsEnabled ? (
         <div className="flex items-start gap-3 rounded-[1.5rem] border border-[#f2cfd7] bg-[#fff1f4] px-4 py-4 text-sm leading-6 text-[#9c5f6c]">
@@ -100,34 +122,8 @@ export function SubmissionForm({
 
       <form ref={formRef} action={formAction} className="space-y-6">
         <input type="hidden" name="topicId" value={topicId} />
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="block">
-            <span className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-[#b08a80]">
-              학급 정보
-            </span>
-            <input
-              id={`grade-class-${topicId}`}
-              name="gradeClass"
-              defaultValue="6학년 1반"
-              className={fieldClassName}
-              disabled={!submissionsEnabled}
-            />
-          </label>
-
-          <label className="block">
-            <span className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-[#b08a80]">
-              이름
-            </span>
-            <input
-              id={`author-${topicId}`}
-              name="authorName"
-              placeholder="본인의 이름"
-              className={fieldClassName}
-              disabled={!submissionsEnabled}
-            />
-          </label>
-        </div>
+        <input type="hidden" name="gradeClass" value={profile?.gradeClass ?? ""} />
+        <input type="hidden" name="authorName" value={profile?.authorName ?? ""} />
 
         <label className="block">
           <span className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-[#b08a80]">
@@ -137,17 +133,17 @@ export function SubmissionForm({
             id={`content-${topicId}`}
             name="content"
             rows={6}
-            className={`${fieldClassName} min-h-36 resize-y`}
+            className={`${textareaClassName} min-h-40 resize-y`}
             placeholder="교실과 주제에 대해 제안하고 싶은 내용을 자유롭게 적어주세요."
-            disabled={!submissionsEnabled}
+            disabled={!submissionsEnabled || !profile}
           />
         </label>
 
-        <div className="flex flex-col items-start justify-between gap-4 border-t border-[#f3e6e1] pt-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-4 border-t border-[#f3e6e1] pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs leading-5 text-[#aa8e84]">
             비속어나 타인을 비방하는 글은 삭제될 수 있습니다.
           </p>
-          <SubmitButton />
+          <SubmitButton disabled={!submissionsEnabled || !profile} />
         </div>
       </form>
     </div>

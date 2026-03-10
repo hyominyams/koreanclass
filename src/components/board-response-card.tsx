@@ -6,11 +6,13 @@ import { Heart, MessageCircleMore } from "lucide-react";
 import { addHeartAction } from "@/app/actions";
 import { CommentForm } from "@/components/comment-form";
 import { type ResponseItem, formatKoreanDateTime } from "@/lib/discussions";
+import type { StudentProfile } from "@/lib/student-profile";
 
 type BoardResponseCardProps = {
   topicId: string;
   response: ResponseItem;
   interactionsEnabled: boolean;
+  profile: StudentProfile | null;
 };
 
 const authorStyles = [
@@ -59,14 +61,15 @@ export function BoardResponseCard({
   topicId,
   response,
   interactionsEnabled,
+  profile,
 }: BoardResponseCardProps) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const authorStyle = getAuthorStyle(response.author);
 
   return (
-    <article className="flex h-full flex-col rounded-[2rem] border border-[#f1dfda] bg-white p-6 shadow-[0_10px_24px_rgba(190,146,146,0.08)] transition-shadow hover:shadow-[0_18px_36px_rgba(190,146,146,0.12)]">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
+    <article className="flex h-full flex-col rounded-[1.75rem] border border-[#f1dfda] bg-white p-5 shadow-[0_10px_24px_rgba(190,146,146,0.08)] transition-shadow hover:shadow-[0_18px_36px_rgba(190,146,146,0.12)] sm:rounded-[2rem] sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <span className={`text-3xl ${authorStyle.tint}`}>{authorStyle.emoji}</span>
           <div className="min-w-0">
             <p className="truncate text-lg font-bold tracking-tight text-[#5d4037]">
@@ -81,12 +84,12 @@ export function BoardResponseCard({
         </span>
       </div>
 
-      <p className="mt-5 flex-1 whitespace-pre-wrap text-[1.03rem] leading-9 text-[#5d4037]">
+      <p className="mt-4 flex-1 whitespace-pre-wrap text-base leading-8 text-[#5d4037] sm:mt-5">
         {response.content}
       </p>
 
       {response.keywords.length > 0 ? (
-        <div className="mt-5 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap gap-2 sm:mt-5">
           {response.keywords.map((keyword) => (
             <span
               key={keyword}
@@ -98,15 +101,15 @@ export function BoardResponseCard({
         </div>
       ) : null}
 
-      <div className="mt-6 border-t border-[#f5ebe6] pt-4">
-        <div className="flex items-center justify-between gap-4">
+      <div className="mt-5 border-t border-[#f5ebe6] pt-4 sm:mt-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <form action={addHeartAction}>
               <input type="hidden" name="topicId" value={topicId} />
               <input type="hidden" name="submissionId" value={response.id} />
               <button
                 type="submit"
-                className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#8d6e63] transition-colors hover:text-[#ef8d9c] disabled:cursor-not-allowed disabled:text-[#ccb5ad]"
+                className="inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-[#8d6e63] transition-colors hover:text-[#ef8d9c] disabled:cursor-not-allowed disabled:text-[#ccb5ad]"
                 disabled={!interactionsEnabled}
               >
                 <Heart className="size-5" />
@@ -114,7 +117,7 @@ export function BoardResponseCard({
               </button>
             </form>
 
-            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#8d6e63]">
+            <span className="inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-[#8d6e63]">
               <MessageCircleMore className="size-5" />
               <span>{response.commentCount}</span>
             </span>
@@ -123,14 +126,14 @@ export function BoardResponseCard({
           <button
             type="button"
             onClick={() => setCommentsOpen((current) => !current)}
-            className="text-sm font-bold text-[#f098a7] transition-colors hover:text-[#e97f91]"
+            className="self-start text-sm font-bold text-[#f098a7] transition-colors hover:text-[#e97f91] sm:self-auto"
           >
             {commentsOpen ? "댓글 접기" : "댓글 보기"}
           </button>
         </div>
 
         {commentsOpen ? (
-          <div className="mt-5 space-y-4 rounded-[1.75rem] border border-[#f2e3de] bg-[#fff8f7] p-4">
+          <div className="mt-4 space-y-4 rounded-[1.5rem] border border-[#f2e3de] bg-[#fff8f7] p-4 sm:mt-5 sm:rounded-[1.75rem]">
             {response.comments.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-[#ead6d0] bg-white px-4 py-3 text-sm text-[#8d6e63]">
                 아직 댓글이 없습니다. 첫 댓글을 남겨 보세요.
@@ -165,6 +168,7 @@ export function BoardResponseCard({
               topicId={topicId}
               submissionId={response.id}
               enabled={interactionsEnabled}
+              profile={profile}
             />
           </div>
         ) : null}

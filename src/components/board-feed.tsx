@@ -4,11 +4,13 @@ import { useState } from "react";
 
 import { BoardResponseCard } from "@/components/board-response-card";
 import type { ResponseItem } from "@/lib/discussions";
+import type { StudentProfile } from "@/lib/student-profile";
 
 type BoardFeedProps = {
   topicId: string;
   responses: ResponseItem[];
   interactionsEnabled: boolean;
+  profile: StudentProfile | null;
 };
 
 const PAGE_SIZE = 6;
@@ -21,6 +23,7 @@ export function BoardFeed({
   topicId,
   responses,
   interactionsEnabled,
+  profile,
 }: BoardFeedProps) {
   const [sortMode, setSortMode] = useState<"latest" | "popular">("latest");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -44,17 +47,17 @@ export function BoardFeed({
 
   return (
     <section data-purpose="post-feed">
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h3 className="text-2xl font-bold tracking-tight text-[#5d4037]">
             모두의 카드 보드
           </h3>
-          <p className="mt-1 text-sm text-[#8d6e63]">
-            친구들의 생각을 따뜻한 카드 형태로 모아봤어요.
+          <p className="mt-1 text-sm leading-6 text-[#8d6e63]">
+            친구들의 생각을 카드처럼 모아 보고 하트와 댓글로 반응해 보세요.
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex">
           <button
             type="button"
             onClick={() => {
@@ -97,19 +100,20 @@ export function BoardFeed({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 2xl:grid-cols-3">
             {visibleResponses.map((response) => (
               <BoardResponseCard
                 key={response.id}
                 topicId={topicId}
                 response={response}
                 interactionsEnabled={interactionsEnabled}
+                profile={profile}
               />
             ))}
           </div>
 
           {hasMore ? (
-            <div className="mt-12 text-center">
+            <div className="mt-10 text-center sm:mt-12">
               <button
                 type="button"
                 onClick={() => setVisibleCount((current) => current + PAGE_SIZE)}

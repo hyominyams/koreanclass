@@ -47,8 +47,8 @@ export function TopicNavigation({
             key={topic.id}
             href={href}
             className={cn(
-              "group block rounded-[1.75rem] transition-all",
-              isHorizontal ? "min-w-[17rem] shrink-0 px-4 py-4" : "px-4 py-4",
+              "group block rounded-[1.5rem] transition-all sm:rounded-[1.75rem]",
+              isHorizontal ? "min-w-[14rem] shrink-0 px-4 py-3 sm:min-w-[16rem]" : "px-4 py-4",
               isActive
                 ? "border border-[#f0d9dc] bg-[#f9efee] text-[#5d4037] shadow-[0_10px_24px_rgba(191,149,149,0.08)]"
                 : "border border-transparent text-[#8d6e63] hover:bg-[#fff6f4]"
