@@ -62,6 +62,7 @@ export async function submitResponseAction(
     };
   }
 
+  revalidatePath(`/write/${parsed.data.topicId}`);
   revalidatePath(`/topics/${parsed.data.topicId}`);
   revalidatePath("/admin");
 

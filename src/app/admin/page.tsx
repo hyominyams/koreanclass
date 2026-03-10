@@ -15,7 +15,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requireAdmin } from "@/lib/admin-auth";
-import { formatKoreanDate, formatKoreanDateTime, getBoardMeta, getTopicById } from "@/lib/discussions";
+import {
+  formatKoreanDate,
+  formatKoreanDateTime,
+  getBoardMeta,
+  getFirstTopicId,
+  getTopicById,
+} from "@/lib/discussions";
 import {
   getAdminSubmissions,
   getSetupState,
@@ -41,6 +47,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
 
   const params = await searchParams;
   const board = getBoardMeta();
+  const studentPageHref = `/write/${getFirstTopicId() ?? ""}`;
   const selectedTopicId =
     typeof params.topic === "string" && params.topic.length > 0 ? params.topic : "all";
   const selectedDate =
@@ -53,7 +60,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       date: selectedDate || undefined,
     }),
   ]);
-  const { supabaseConfigured } = getSetupState();
+  const { supabaseConfigured, submissionsReady } = await getSetupState();
 
   const groupedSubmissions = submissions.reduce<Map<string, typeof submissions>>(
     (groups, submission) => {
@@ -90,7 +97,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           </div>
           <div className="flex items-center gap-3">
             <Link
-              href="/"
+              href={studentPageHref}
               className="inline-flex rounded-full border border-border/70 bg-background/80 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
             >
               공개 보드로 돌아가기
@@ -111,6 +118,17 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             <AlertDescription>
               현재는 개발용 시드 데이터로 보여주고 있습니다. 실제 학생 글 저장을
               쓰려면 `.env.local`과 `supabase/schema.sql`을 먼저 적용해 주세요.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {supabaseConfigured && !submissionsReady && (
+          <Alert variant="destructive">
+            <TriangleAlert className="size-4" />
+            <AlertTitle>submissions 테이블이 아직 없습니다</AlertTitle>
+            <AlertDescription>
+              현재는 시드 데이터로만 보이고 있습니다. Supabase SQL Editor에서
+              `supabase/schema.sql`을 먼저 실행해야 실제 학생 작성이 저장됩니다.
             </AlertDescription>
           </Alert>
         )}

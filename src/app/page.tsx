@@ -9,5 +9,5 @@ export default function Home() {
     return null;
   }
 
-  redirect(`/topics/${firstTopicId}`);
+  redirect(`/write/${firstTopicId}`);
 }

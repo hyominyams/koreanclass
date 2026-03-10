@@ -9,11 +9,13 @@ import { cn } from "@/lib/utils";
 type TopicNavigationProps = {
   topics: TopicSummary[];
   activeTopicId: string;
+  hrefBase?: string;
 };
 
 export function TopicNavigation({
   topics,
   activeTopicId,
+  hrefBase = "/topics",
 }: TopicNavigationProps) {
   return (
     <ScrollArea className="max-h-[calc(100vh-18rem)] pr-2">
@@ -24,7 +26,7 @@ export function TopicNavigation({
           return (
             <Link
               key={topic.id}
-              href={`/topics/${topic.id}`}
+              href={`${hrefBase}/${topic.id}`}
               className={cn(
                 "inline-flex h-auto w-full flex-col items-start justify-start rounded-2xl border px-4 py-4 text-left text-sm transition-all outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
                 isActive

@@ -34,6 +34,12 @@ export type SubmissionRecord = ResponseItem & {
   topicId: string;
 };
 
+export type SetupState = {
+  supabaseConfigured: boolean;
+  submissionsReady: boolean;
+  boardUpdatedAt: string;
+};
+
 function extractKeywords(content: string, perspective: string) {
   const tokens = `${perspective} ${content}`
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
@@ -250,6 +256,14 @@ export async function createSubmission(input: SubmissionInput) {
   if (error) {
     console.error("Failed to create a submission in Supabase.", error);
 
+    if (error.code === "PGRST205") {
+      return {
+        ok: false,
+        message:
+          "Supabase submissions 테이블이 아직 준비되지 않았습니다. 관리자에게 schema.sql 적용을 요청해 주세요.",
+      };
+    }
+
     return {
       ok: false,
       message:
@@ -263,9 +277,35 @@ export async function createSubmission(input: SubmissionInput) {
   };
 }
 
-export function getSetupState() {
+export async function getSetupState(): Promise<SetupState> {
+  const supabaseConfigured = isSupabaseConfigured();
+
+  if (!supabaseConfigured) {
+    return {
+      supabaseConfigured: false,
+      submissionsReady: false,
+      boardUpdatedAt: getBoardMeta().updatedAt,
+    };
+  }
+
+  const client = createSupabaseAdminClient();
+
+  if (!client) {
+    return {
+      supabaseConfigured: false,
+      submissionsReady: false,
+      boardUpdatedAt: getBoardMeta().updatedAt,
+    };
+  }
+
+  const { error } = await client.from("submissions").select("id", {
+    head: true,
+    count: "exact",
+  });
+
   return {
-    supabaseConfigured: isSupabaseConfigured(),
+    supabaseConfigured: true,
+    submissionsReady: !error,
     boardUpdatedAt: getBoardMeta().updatedAt,
   };
 }
