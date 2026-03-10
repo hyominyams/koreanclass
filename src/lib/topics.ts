@@ -1,6 +1,7 @@
 import "server-only";
 
-import { createSupabaseAdminClient, isSupabaseConfigured } from "@/lib/supabase";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getFirstTopicId,
   getTopicById,
@@ -45,7 +46,7 @@ async function fetchTopicRows() {
     return null;
   }
 
-  const client = createSupabaseAdminClient();
+  const client = await createSupabaseServerClient();
 
   if (!client) {
     return null;
@@ -131,7 +132,7 @@ export async function createTopic(input: TopicInput) {
     };
   }
 
-  const client = createSupabaseAdminClient();
+  const client = await createSupabaseServerClient();
 
   if (!client) {
     return {

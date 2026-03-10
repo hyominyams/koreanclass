@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import {
   buildTopicSummary,
   flattenSeedResponses,
@@ -9,7 +11,8 @@ import {
   type ResponseItem,
   type TopicSummary,
 } from "@/lib/discussions";
-import { createSupabaseAdminClient, isSupabaseConfigured } from "@/lib/supabase";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getTopicByIdFromSource,
   getTopicDefinitionsFromSource,
@@ -146,7 +149,7 @@ function getFallbackRecords() {
   }));
 }
 
-async function fetchInteractionRows(client: ReturnType<typeof createSupabaseAdminClient>, submissionIds: string[]) {
+async function fetchInteractionRows(client: SupabaseClient | null, submissionIds: string[]) {
   if (!client || submissionIds.length === 0) {
     return {
       commentRows: [] as CommentRow[],
@@ -182,7 +185,7 @@ export async function getTopicResponses(topicId: string) {
     return getSeedResponses(topicId);
   }
 
-  const client = createSupabaseAdminClient();
+  const client = await createSupabaseServerClient();
 
   if (!client) {
     return getSeedResponses(topicId);
@@ -224,7 +227,7 @@ export async function getTopicSummariesFromSource(): Promise<TopicSummary[]> {
     return topics.map((topic) => buildTopicSummary(topic, topic.responses));
   }
 
-  const client = createSupabaseAdminClient();
+  const client = await createSupabaseServerClient();
 
   if (!client) {
     return topics.map((topic) => buildTopicSummary(topic, topic.responses));
@@ -278,7 +281,7 @@ export async function getAdminSubmissions(filters?: {
     return applySubmissionFilters(fallbackRecords, filters);
   }
 
-  const client = createSupabaseAdminClient();
+  const client = await createSupabaseServerClient();
 
   if (!client) {
     return applySubmissionFilters(fallbackRecords, filters);
@@ -350,7 +353,7 @@ export async function createSubmission(input: SubmissionInput) {
     };
   }
 
-  const client = createSupabaseAdminClient();
+  const client = await createSupabaseServerClient();
 
   if (!client) {
     return {
@@ -397,7 +400,7 @@ export async function createComment(input: CommentInput) {
     };
   }
 
-  const client = createSupabaseAdminClient();
+  const client = await createSupabaseServerClient();
 
   if (!client) {
     return {
@@ -436,7 +439,7 @@ export async function addHeart(input: HeartInput) {
     };
   }
 
-  const client = createSupabaseAdminClient();
+  const client = await createSupabaseServerClient();
 
   if (!client) {
     return {
@@ -477,7 +480,7 @@ export async function getSetupState(): Promise<SetupState> {
     };
   }
 
-  const client = createSupabaseAdminClient();
+  const client = await createSupabaseServerClient();
 
   if (!client) {
     return {

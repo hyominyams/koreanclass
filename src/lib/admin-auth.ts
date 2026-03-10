@@ -1,53 +1,48 @@
 import "server-only";
 
-import { createHmac, timingSafeEqual } from "node:crypto";
-
-import { cookies } from "next/headers";
+import type { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 
-const ADMIN_COOKIE_NAME = "padlet-admin";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-function getAdminToken() {
-  const password = process.env.ADMIN_PASSWORD;
-  const secret = process.env.ADMIN_SECRET;
+export type AdminLoginResult =
+  | { ok: true }
+  | { ok: false; reason: "not_configured" | "invalid_credentials" | "not_admin" };
 
-  if (!password || !secret) {
-    return null;
-  }
-
-  return createHmac("sha256", secret).update(password).digest("hex");
-}
-
-function safeCompare(left: string, right: string) {
-  const leftBuffer = Buffer.from(left);
-  const rightBuffer = Buffer.from(right);
-
-  if (leftBuffer.length !== rightBuffer.length) {
-    return false;
-  }
-
-  return timingSafeEqual(leftBuffer, rightBuffer);
+function isAdminUser(user: User | null) {
+  return user?.app_metadata?.role === "admin";
 }
 
 export function isAdminConfigured() {
-  return Boolean(process.env.ADMIN_PASSWORD && process.env.ADMIN_SECRET);
+  return isSupabaseConfigured();
+}
+
+export async function getAdminUser() {
+  if (!isSupabaseConfigured()) {
+    return null;
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    return null;
+  }
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !isAdminUser(user)) {
+    return null;
+  }
+
+  return user;
 }
 
 export async function isAdminAuthenticated() {
-  const expectedToken = getAdminToken();
-
-  if (!expectedToken) {
-    return false;
-  }
-
-  const cookieStore = await cookies();
-  const savedToken = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
-
-  if (!savedToken) {
-    return false;
-  }
-
-  return safeCompare(savedToken, expectedToken);
+  return Boolean(await getAdminUser());
 }
 
 export async function requireAdmin() {
@@ -56,32 +51,45 @@ export async function requireAdmin() {
   }
 }
 
-export async function loginAdmin(password: string) {
-  const expectedToken = getAdminToken();
-  const configuredPassword = process.env.ADMIN_PASSWORD;
-
-  if (!expectedToken || !configuredPassword) {
-    return false;
+export async function loginAdmin(email: string, password: string): Promise<AdminLoginResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: false, reason: "not_configured" };
   }
 
-  if (password !== configuredPassword) {
-    return false;
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    return { ok: false, reason: "not_configured" };
   }
 
-  const cookieStore = await cookies();
-
-  cookieStore.set(ADMIN_COOKIE_NAME, expectedToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 12,
+  const { error } = await supabase.auth.signInWithPassword({
+    email: email.trim(),
+    password,
   });
 
-  return true;
+  if (error) {
+    return { ok: false, reason: "invalid_credentials" };
+  }
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !isAdminUser(user)) {
+    await supabase.auth.signOut();
+    return { ok: false, reason: "not_admin" };
+  }
+
+  return { ok: true };
 }
 
 export async function logoutAdmin() {
-  const cookieStore = await cookies();
-  cookieStore.delete(ADMIN_COOKIE_NAME);
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    return;
+  }
+
+  await supabase.auth.signOut();
 }

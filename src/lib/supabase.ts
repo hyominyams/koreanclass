@@ -2,28 +2,39 @@ import "server-only";
 
 import { createClient } from "@supabase/supabase-js";
 
-function getSupabaseServerKey() {
+export function getSupabaseUrl() {
+  return process.env.NEXT_PUBLIC_SUPABASE_URL ?? null;
+}
+
+export function getSupabaseAnonKey() {
   return (
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env.SUPABASE_ANON_KEY ??
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    process.env.SUPABASE_ANON_KEY ??
     null
   );
 }
 
+function getSupabaseServiceRoleKey() {
+  return process.env.SUPABASE_SERVICE_ROLE_KEY ?? null;
+}
+
 export function isSupabaseConfigured() {
-  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && getSupabaseServerKey());
+  return Boolean(getSupabaseUrl() && getSupabaseAnonKey());
+}
+
+export function isSupabaseAdminConfigured() {
+  return Boolean(getSupabaseUrl() && getSupabaseServiceRoleKey());
 }
 
 export function createSupabaseAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serverKey = getSupabaseServerKey();
+  const url = getSupabaseUrl();
+  const serviceRoleKey = getSupabaseServiceRoleKey();
 
-  if (!url || !serverKey) {
+  if (!url || !serviceRoleKey) {
     return null;
   }
 
-  return createClient(url, serverKey, {
+  return createClient(url, serviceRoleKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,

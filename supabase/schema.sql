@@ -1,5 +1,15 @@
 create extension if not exists pgcrypto;
 
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+as $$
+  select coalesce((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin', false);
+$$;
+
+grant execute on function public.is_admin() to anon, authenticated, service_role;
+
 create table if not exists public.topics (
   id text primary key,
   title text not null,
@@ -62,12 +72,13 @@ grant select, insert on public.submissions to anon, authenticated;
 grant select, insert on public.submission_comments to anon, authenticated;
 grant select, insert on public.submission_hearts to anon, authenticated;
 
-drop policy if exists "service role full access topics" on public.topics;
-create policy "service role full access topics"
+drop policy if exists "admin manage topics" on public.topics;
+create policy "admin manage topics"
   on public.topics
   for all
-  using (auth.role() = 'service_role')
-  with check (auth.role() = 'service_role');
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
 
 drop policy if exists "public read topics" on public.topics;
 create policy "public read topics"
@@ -75,12 +86,13 @@ create policy "public read topics"
   for select
   using (true);
 
-drop policy if exists "service role full access submissions" on public.submissions;
-create policy "service role full access submissions"
+drop policy if exists "admin manage submissions" on public.submissions;
+create policy "admin manage submissions"
   on public.submissions
   for all
-  using (auth.role() = 'service_role')
-  with check (auth.role() = 'service_role');
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
 
 drop policy if exists "public read submissions" on public.submissions;
 create policy "public read submissions"
@@ -94,12 +106,13 @@ create policy "public insert submissions"
   for insert
   with check (true);
 
-drop policy if exists "service role full access submission comments" on public.submission_comments;
-create policy "service role full access submission comments"
+drop policy if exists "admin manage submission comments" on public.submission_comments;
+create policy "admin manage submission comments"
   on public.submission_comments
   for all
-  using (auth.role() = 'service_role')
-  with check (auth.role() = 'service_role');
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
 
 drop policy if exists "public read submission comments" on public.submission_comments;
 create policy "public read submission comments"
@@ -113,12 +126,13 @@ create policy "public insert submission comments"
   for insert
   with check (true);
 
-drop policy if exists "service role full access submission hearts" on public.submission_hearts;
-create policy "service role full access submission hearts"
+drop policy if exists "admin manage submission hearts" on public.submission_hearts;
+create policy "admin manage submission hearts"
   on public.submission_hearts
   for all
-  using (auth.role() = 'service_role')
-  with check (auth.role() = 'service_role');
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
 
 drop policy if exists "public read submission hearts" on public.submission_hearts;
 create policy "public read submission hearts"
