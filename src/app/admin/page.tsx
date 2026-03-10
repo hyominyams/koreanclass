@@ -93,7 +93,8 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   );
 
   const uniqueTopicCount = new Set(submissions.map((item) => item.topicId)).size;
-  const uniqueAuthorCount = new Set(submissions.map((item) => item.author)).size;
+  const totalHeartCount = submissions.reduce((sum, item) => sum + item.heartCount, 0);
+  const totalCommentCount = submissions.reduce((sum, item) => sum + item.commentCount, 0);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(15,23,42,0.10),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(14,116,144,0.14),transparent_30%),linear-gradient(180deg,#f3f1eb_0%,#fbfaf7_48%,#edf3f7_100%)]">
@@ -113,7 +114,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                     </div>
                   </div>
                   <CardDescription className="text-sm leading-6">
-                    주제 목록, 학생 제출 현황, 새 주제 추가를 한 곳에서 관리합니다.
+                    주제 관리와 전체 보드 모니터링을 한 화면에서 처리합니다.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4 px-5 py-5">
@@ -122,7 +123,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                       href={studentPageHref}
                       className="inline-flex items-center justify-between rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-100"
                     >
-                      학생 화면 열기
+                      학생 공유 보드 열기
                       <SquareArrowOutUpRight className="size-4" />
                     </Link>
                     <form action={logoutAdminAction}>
@@ -136,9 +137,9 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <p className="text-sm font-semibold text-slate-900">주제 사이드바</p>
+                        <p className="text-sm font-semibold text-slate-900">주제 목록</p>
                         <p className="text-xs text-slate-500">
-                          주제를 선택하면 오른쪽 목록이 바로 필터링됩니다.
+                          주제를 바꾸면 오른쪽 제출 목록이 바로 필터링됩니다.
                         </p>
                       </div>
                       <PanelLeftOpen className="size-4 text-slate-400" />
@@ -189,16 +190,16 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                       관리자 전용
                     </Badge>
                     <Badge variant="outline" className="rounded-full border-slate-200 bg-white">
-                      {board.facilitator}
+                      공유 보드 운영
                     </Badge>
                   </div>
                   <div>
                     <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
-                      학생 제출을 읽고 주제를 관리하는 화면
+                      학생 공유 보드 운영 화면
                     </h1>
                     <p className="text-sm leading-6 text-slate-600 md:text-base">
-                      학생 화면과 분리된 교사 전용 대시보드입니다. 새 주제는 여기에서만
-                      추가됩니다.
+                      주제를 추가하고, 학생들이 올린 글과 댓글, 하트 반응까지 함께
+                      모니터링합니다.
                     </p>
                   </div>
                 </div>
@@ -208,7 +209,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
               </div>
             </header>
 
-            {!setupState.supabaseConfigured && (
+            {!setupState.supabaseConfigured ? (
               <Alert variant="destructive">
                 <TriangleAlert className="size-4" />
                 <AlertTitle>Supabase 환경변수가 비어 있습니다</AlertTitle>
@@ -217,47 +218,58 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                   Supabase URL과 키를 먼저 설정해 주세요.
                 </AlertDescription>
               </Alert>
-            )}
+            ) : null}
 
-            {setupState.supabaseConfigured && !setupState.topicsReady && (
+            {setupState.supabaseConfigured && !setupState.topicsReady ? (
               <Alert variant="destructive">
                 <TriangleAlert className="size-4" />
                 <AlertTitle>topics 테이블이 아직 준비되지 않았습니다</AlertTitle>
                 <AlertDescription>
-                  새 주제 추가는 `topics` 테이블이 있어야 동작합니다. 마이그레이션이
-                  제대로 반영됐는지 확인해 주세요.
+                  주제 추가와 사이드바 렌더링을 위해 `topics` 테이블이 필요합니다.
                 </AlertDescription>
               </Alert>
-            )}
+            ) : null}
 
-            {setupState.supabaseConfigured && !setupState.submissionsReady && (
+            {setupState.supabaseConfigured && !setupState.submissionsReady ? (
               <Alert variant="destructive">
                 <TriangleAlert className="size-4" />
                 <AlertTitle>submissions 테이블이 아직 준비되지 않았습니다</AlertTitle>
                 <AlertDescription>
-                  학생 제출 저장은 `submissions` 테이블이 있어야 동작합니다.
-                  마이그레이션 상태를 확인해 주세요.
+                  학생 글 저장과 공개 보드 표시를 위해 `submissions` 테이블이 필요합니다.
                 </AlertDescription>
               </Alert>
-            )}
+            ) : null}
+
+            {setupState.supabaseConfigured && !setupState.interactionsReady ? (
+              <Alert variant="destructive">
+                <TriangleAlert className="size-4" />
+                <AlertTitle>댓글/하트 테이블이 아직 준비되지 않았습니다</AlertTitle>
+                <AlertDescription>
+                  `submission_comments`, `submission_hearts` 테이블이 있어야 공유 보드
+                  상호작용이 동작합니다.
+                </AlertDescription>
+              </Alert>
+            ) : null}
 
             <section className="grid gap-4 md:grid-cols-3">
               <Card className="rounded-[2rem] border border-white/70 bg-white/90 py-0 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
                 <CardHeader className="px-5 py-5">
                   <CardDescription>현재 필터 결과</CardDescription>
-                  <CardTitle className="text-2xl">{submissions.length}개 응답</CardTitle>
+                  <CardTitle className="text-2xl">{submissions.length}개 글</CardTitle>
                 </CardHeader>
               </Card>
               <Card className="rounded-[2rem] border border-white/70 bg-white/90 py-0 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
                 <CardHeader className="px-5 py-5">
-                  <CardDescription>응답이 있는 주제</CardDescription>
-                  <CardTitle className="text-2xl">{uniqueTopicCount}개 주제</CardTitle>
+                  <CardDescription>주제 수 / 하트</CardDescription>
+                  <CardTitle className="text-2xl">
+                    {uniqueTopicCount}개 / {totalHeartCount}개
+                  </CardTitle>
                 </CardHeader>
               </Card>
               <Card className="rounded-[2rem] border border-white/70 bg-white/90 py-0 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
                 <CardHeader className="px-5 py-5">
-                  <CardDescription>참여한 별칭 수</CardDescription>
-                  <CardTitle className="text-2xl">{uniqueAuthorCount}명</CardTitle>
+                  <CardDescription>전체 댓글 수</CardDescription>
+                  <CardTitle className="text-2xl">{totalCommentCount}개</CardTitle>
                 </CardHeader>
               </Card>
             </section>
@@ -267,9 +279,9 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
 
               <Card className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/90 py-0 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
                 <CardHeader className="border-b border-slate-200/80 px-6 py-6">
-                  <CardTitle className="text-xl tracking-tight">응답 필터</CardTitle>
+                  <CardTitle className="text-xl tracking-tight">글 필터</CardTitle>
                   <CardDescription className="text-sm leading-6">
-                    특정 주제나 날짜만 골라서 학생 생각을 빠르게 모아 볼 수 있습니다.
+                    특정 주제나 날짜만 골라서 전체 보드 활동을 빠르게 볼 수 있습니다.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="px-6 py-6">
@@ -319,7 +331,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
               {submissions.length === 0 ? (
                 <Card className="rounded-[2rem] border border-dashed border-slate-300 bg-white/70 py-0">
                   <CardContent className="px-6 py-12 text-center text-sm text-slate-500">
-                    선택한 조건에 맞는 학생 응답이 아직 없습니다.
+                    선택한 조건에 맞는 학생 글이 아직 없습니다.
                   </CardContent>
                 </Card>
               ) : (
@@ -328,7 +340,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                     <div>
                       <h2 className="text-lg font-semibold text-slate-950">{dateLabel}</h2>
                       <p className="text-sm text-slate-500">
-                        이 날짜에 제출된 학생 응답 {items.length}개
+                        이 날짜에 올라온 학생 글 {items.length}개
                       </p>
                     </div>
                     <div className="grid gap-4 xl:grid-cols-2">

@@ -7,13 +7,26 @@ export type BoardMeta = {
   updatedAt: string;
 };
 
+export type BoardComment = {
+  id: string;
+  submissionId: string;
+  author: string;
+  gradeClass: string;
+  content: string;
+  createdAt: string;
+};
+
 export type ResponseItem = {
   id: string;
   author: string;
+  gradeClass: string;
   perspective: string;
   content: string;
   keywords: string[];
   submittedAt: string;
+  heartCount: number;
+  commentCount: number;
+  comments: BoardComment[];
 };
 
 export type TopicDefinition = {
@@ -109,7 +122,9 @@ export function buildTopicSummary(
     category: topic.category,
     prompt: topic.prompt,
     responseCount: sortedResponses.length,
-    participantCount: new Set(sortedResponses.map((response) => response.author)).size,
+    participantCount: new Set(
+      sortedResponses.map((response) => `${response.gradeClass}:${response.author}`)
+    ).size,
     latestResponseAt: sortedResponses[0]?.submittedAt ?? discussionBoard.board.updatedAt,
   };
 }
@@ -134,7 +149,9 @@ export function buildTopicMetrics(
   });
 
   const responseCount = sortedResponses.length;
-  const participantCount = new Set(sortedResponses.map((response) => response.author)).size;
+  const participantCount = new Set(
+    sortedResponses.map((response) => `${response.gradeClass}:${response.author}`)
+  ).size;
 
   return {
     responseCount,

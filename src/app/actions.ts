@@ -10,7 +10,7 @@ import {
   loginAdmin,
   logoutAdmin,
 } from "@/lib/admin-auth";
-import { createSubmission } from "@/lib/submissions";
+import { addHeart, createComment, createSubmission } from "@/lib/submissions";
 import { createTopic } from "@/lib/topics";
 
 export type ActionState = {
@@ -23,18 +23,43 @@ const submissionSchema = z.object({
   authorName: z
     .string()
     .trim()
-    .min(1, "이름이나 별칭을 입력해 주세요.")
+    .min(1, "이름을 입력해 주세요.")
     .max(24, "이름은 24자 이하로 입력해 주세요."),
-  perspective: z
+  gradeClass: z
     .string()
     .trim()
-    .min(1, "어떤 관점에서 쓴 글인지 입력해 주세요.")
-    .max(32, "관점은 32자 이하로 입력해 주세요."),
+    .min(1, "학년 반을 입력해 주세요.")
+    .max(32, "학년 반은 32자 이하로 입력해 주세요."),
   content: z
     .string()
     .trim()
-    .min(10, "생각은 최소 10자 이상 적어 주세요.")
-    .max(1200, "생각은 1200자 이하로 적어 주세요."),
+    .min(10, "글은 최소 10자 이상 적어 주세요.")
+    .max(1200, "글은 1200자 이하로 적어 주세요."),
+});
+
+const commentSchema = z.object({
+  topicId: z.string().trim().min(1),
+  submissionId: z.string().uuid(),
+  commenterName: z
+    .string()
+    .trim()
+    .min(1, "댓글 작성 이름을 입력해 주세요.")
+    .max(24, "이름은 24자 이하로 입력해 주세요."),
+  commenterGradeClass: z
+    .string()
+    .trim()
+    .min(1, "학년 반을 입력해 주세요.")
+    .max(32, "학년 반은 32자 이하로 입력해 주세요."),
+  content: z
+    .string()
+    .trim()
+    .min(2, "댓글은 최소 2자 이상 적어 주세요.")
+    .max(300, "댓글은 300자 이하로 적어 주세요."),
+});
+
+const heartSchema = z.object({
+  topicId: z.string().trim().min(1),
+  submissionId: z.string().uuid(),
 });
 
 const topicSchema = z.object({
@@ -56,7 +81,7 @@ const topicSchema = z.object({
   guidingQuestion: z
     .string()
     .trim()
-    .min(8, "생각을 열어 줄 질문을 입력해 주세요.")
+    .min(8, "생각을 여는 질문은 8자 이상 입력해 주세요.")
     .max(200, "질문은 200자 이하로 입력해 주세요."),
   tags: z
     .string()
@@ -76,7 +101,7 @@ export async function submitResponseAction(
   const parsed = submissionSchema.safeParse({
     topicId: formData.get("topicId"),
     authorName: formData.get("authorName"),
-    perspective: formData.get("perspective"),
+    gradeClass: formData.get("gradeClass"),
     content: formData.get("content"),
   });
 
@@ -105,6 +130,59 @@ export async function submitResponseAction(
     status: "success",
     message: result.message,
   };
+}
+
+export async function createCommentAction(
+  _previousState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const parsed = commentSchema.safeParse({
+    topicId: formData.get("topicId"),
+    submissionId: formData.get("submissionId"),
+    commenterName: formData.get("commenterName"),
+    commenterGradeClass: formData.get("commenterGradeClass"),
+    content: formData.get("content"),
+  });
+
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: parsed.error.issues[0]?.message ?? "댓글 내용을 다시 확인해 주세요.",
+    };
+  }
+
+  const result = await createComment(parsed.data);
+
+  if (!result.ok) {
+    return {
+      status: "error",
+      message: result.message,
+    };
+  }
+
+  revalidatePath(`/write/${parsed.data.topicId}`);
+  revalidatePath("/admin");
+
+  return {
+    status: "success",
+    message: result.message,
+  };
+}
+
+export async function addHeartAction(formData: FormData) {
+  const parsed = heartSchema.safeParse({
+    topicId: formData.get("topicId"),
+    submissionId: formData.get("submissionId"),
+  });
+
+  if (!parsed.success) {
+    return;
+  }
+
+  await addHeart(parsed.data);
+
+  revalidatePath(`/write/${parsed.data.topicId}`);
+  revalidatePath("/admin");
 }
 
 export async function createTopicAction(

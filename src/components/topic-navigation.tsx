@@ -1,10 +1,5 @@
 import Link from "next/link";
-import {
-  ChevronRight,
-  FolderKanban,
-  MessageSquareText,
-  Sparkles,
-} from "lucide-react";
+import { ChevronRight, FolderKanban, MessageSquareText, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -67,6 +62,7 @@ export function TopicNavigation({
                       {topic.category}
                     </Badge>
                   </div>
+
                   <div>
                     <p className="line-clamp-2 text-sm font-semibold leading-6">
                       {topic.title}
@@ -81,10 +77,13 @@ export function TopicNavigation({
                     </p>
                   </div>
                 </div>
+
                 <ChevronRight
                   className={cn(
                     "mt-1 size-4 shrink-0 transition-transform",
-                    isActive ? "translate-x-0 text-white" : "text-slate-400 group-hover:translate-x-0.5"
+                    isActive
+                      ? "translate-x-0 text-white"
+                      : "text-slate-400 group-hover:translate-x-0.5"
                   )}
                 />
               </div>
@@ -97,10 +96,10 @@ export function TopicNavigation({
               >
                 <span className="inline-flex items-center gap-1.5">
                   <MessageSquareText className="size-3.5" />
-                  응답 {topic.responseCount}
+                  글 {topic.responseCount}
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <Sparkles className="size-3.5" />
+                  <Users className="size-3.5" />
                   참여 {topic.participantCount}
                 </span>
               </div>
@@ -111,7 +110,7 @@ export function TopicNavigation({
                   isActive ? "text-slate-300" : "text-slate-500"
                 )}
               >
-                최근 응답 {formatKoreanDateTime(topic.latestResponseAt)}
+                최근 글 {formatKoreanDateTime(topic.latestResponseAt)}
               </p>
             </Link>
           );

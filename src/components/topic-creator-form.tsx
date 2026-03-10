@@ -52,12 +52,13 @@ export function TopicCreatorForm() {
       <CardHeader className="border-b border-slate-200/80 px-6 py-6">
         <CardTitle className="text-xl tracking-tight">새 주제 추가</CardTitle>
         <CardDescription className="text-sm leading-6">
-          주제는 교사 계정에서만 추가됩니다. 학생 화면에는 이 목록이 사이드바로
+          학생 보드에 보여 줄 새 주제를 등록합니다. 추가한 주제는 왼쪽 사이드바에
           바로 반영됩니다.
         </CardDescription>
       </CardHeader>
+
       <CardContent className="space-y-5 px-6 py-6">
-        {state.status !== "idle" && (
+        {state.status !== "idle" ? (
           <Alert variant={state.status === "error" ? "destructive" : "default"}>
             {state.status === "success" ? (
               <CheckCircle2 className="size-4" />
@@ -65,11 +66,11 @@ export function TopicCreatorForm() {
               <TriangleAlert className="size-4" />
             )}
             <AlertTitle>
-              {state.status === "success" ? "주제 추가 완료" : "확인이 필요합니다"}
+              {state.status === "success" ? "주제 추가 완료" : "주제를 확인해 주세요"}
             </AlertTitle>
             <AlertDescription>{state.message}</AlertDescription>
           </Alert>
-        )}
+        ) : null}
 
         <form ref={formRef} action={formAction} className="space-y-5">
           <div className="grid gap-5 md:grid-cols-[1.5fr_1fr]">
@@ -78,7 +79,7 @@ export function TopicCreatorForm() {
               <Input
                 id="topic-title"
                 name="title"
-                placeholder="예: 한국어 수업에서 토론이 더 필요한 이유"
+                placeholder="예: 우리 학교에서 가장 먼저 바뀌어야 할 규칙"
               />
             </div>
             <div className="space-y-2">
@@ -86,7 +87,7 @@ export function TopicCreatorForm() {
               <Input
                 id="topic-category"
                 name="category"
-                placeholder="예: 토론, 글쓰기, 문화"
+                placeholder="예: 토론, 글쓰기, 수업"
               />
             </div>
           </div>
@@ -97,7 +98,7 @@ export function TopicCreatorForm() {
               id="topic-prompt"
               name="prompt"
               className="min-h-28 resize-y"
-              placeholder="학생이 이 주제에서 무엇을 생각하고 정리해야 하는지 또렷하게 적어 주세요."
+              placeholder="학생들이 어떤 방향으로 생각을 나누면 좋을지 주제 설명을 적어 주세요."
             />
           </div>
 
@@ -107,7 +108,7 @@ export function TopicCreatorForm() {
               id="topic-guiding-question"
               name="guidingQuestion"
               className="min-h-24 resize-y"
-              placeholder="예: 이 상황에서 가장 먼저 바뀌어야 할 것은 무엇일까요?"
+              placeholder="예: 이 문제를 해결하려면 가장 먼저 무엇이 달라져야 할까요?"
             />
           </div>
 
@@ -116,7 +117,7 @@ export function TopicCreatorForm() {
             <Input
               id="topic-tags"
               name="tags"
-              placeholder="예: 말하기, 협업, 피드백"
+              placeholder="예: 협업, 수업, 발표"
             />
             <p className="text-xs text-muted-foreground">
               쉼표로 구분하면 최대 8개까지 저장됩니다.

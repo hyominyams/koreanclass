@@ -34,12 +34,12 @@ export function AdminLoginForm() {
 
   return (
     <form action={formAction} className="space-y-5">
-      {state.status === "error" && (
+      {state.status === "error" ? (
         <Alert variant="destructive">
           <AlertTitle>로그인에 실패했습니다</AlertTitle>
           <AlertDescription>{state.message}</AlertDescription>
         </Alert>
-      )}
+      ) : null}
 
       <div className="space-y-2">
         <Label htmlFor="admin-password">관리자 비밀번호</Label>

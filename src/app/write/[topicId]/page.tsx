@@ -1,14 +1,16 @@
 import {
   BookOpenText,
+  Heart,
   Lightbulb,
   Menu,
   NotebookPen,
-  PenSquare,
 } from "lucide-react";
 import { notFound } from "next/navigation";
 
+import { BoardResponseCard } from "@/components/board-response-card";
 import { SubmissionForm } from "@/components/submission-form";
 import { TopicNavigation } from "@/components/topic-navigation";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +18,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Sheet,
@@ -26,8 +27,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { getBoardMeta, formatKoreanDateTime } from "@/lib/discussions";
-import { getSetupState, getTopicSummariesFromSource } from "@/lib/submissions";
+import { formatKoreanDateTime, getBoardMeta } from "@/lib/discussions";
+import {
+  getSetupState,
+  getTopicResponses,
+  getTopicSummariesFromSource,
+} from "@/lib/submissions";
 import { getTopicByIdFromSource } from "@/lib/topics";
 
 export const dynamic = "force-dynamic";
@@ -38,20 +43,20 @@ type StudentWritePageProps = {
   }>;
 };
 
-const writingChecklist = [
+const boardTips = [
   {
-    title: "입장 먼저 쓰기",
-    description: "찬성, 반대보다 먼저 지금 내 생각이 어디에 가까운지 한 문장으로 적어 보세요.",
-    icon: PenSquare,
-  },
-  {
-    title: "이유와 예시 붙이기",
-    description: "왜 그렇게 생각하는지, 실제 경험이나 수업 장면을 하나 이상 덧붙이면 글이 또렷해집니다.",
+    title: "생각을 먼저 올리기",
+    description: "완벽하게 정리되지 않아도 괜찮습니다. 지금 떠오른 생각부터 먼저 올리세요.",
     icon: NotebookPen,
   },
   {
-    title: "남은 질문 남기기",
-    description: "아직 헷갈리는 점이나 더 이야기해 보고 싶은 질문을 마지막에 적어도 좋습니다.",
+    title: "친구 글에 반응하기",
+    description: "공감되면 하트를 남기고, 더 듣고 싶으면 댓글로 질문해 보세요.",
+    icon: Heart,
+  },
+  {
+    title: "서로의 차이 보기",
+    description: "같은 주제라도 관점이 다를 수 있습니다. 다른 의견을 비교하며 읽어 보세요.",
     icon: Lightbulb,
   },
 ];
@@ -60,9 +65,10 @@ export default async function StudentWritePage({ params }: StudentWritePageProps
   const { topicId } = await params;
   const board = getBoardMeta();
 
-  const [topic, topics, setupState] = await Promise.all([
+  const [topic, topics, responses, setupState] = await Promise.all([
     getTopicByIdFromSource(topicId),
     getTopicSummariesFromSource(),
+    getTopicResponses(topicId),
     getSetupState(),
   ]);
 
@@ -71,14 +77,16 @@ export default async function StudentWritePage({ params }: StudentWritePageProps
   }
 
   const activeTopicSummary = topics.find((item) => item.id === topic.id);
+  const totalHeartCount = responses.reduce((sum, item) => sum + item.heartCount, 0);
+  const totalCommentCount = responses.reduce((sum, item) => sum + item.commentCount, 0);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.16),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(14,116,144,0.15),transparent_30%),linear-gradient(180deg,#f7f3eb_0%,#fdfcf8_48%,#eef4f8_100%)]">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(14,116,144,0.14),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.16),transparent_30%),linear-gradient(180deg,#f3efe7_0%,#fbfaf7_45%,#eef4f8_100%)]">
       <div className="mx-auto max-w-7xl px-4 py-5 md:px-6 lg:px-8 lg:py-8">
         <div className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
           <aside className="hidden lg:block">
             <div className="sticky top-8 space-y-4">
-              <Card className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/88 py-0 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur">
+              <Card className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/92 py-0 shadow-[0_24px_70px_rgba(15,23,42,0.08)] backdrop-blur">
                 <CardHeader className="border-b border-slate-200/70 px-5 py-5">
                   <div className="flex items-center gap-3">
                     <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-slate-900 text-white">
@@ -86,13 +94,14 @@ export default async function StudentWritePage({ params }: StudentWritePageProps
                     </span>
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{board.title}</p>
-                      <p className="text-xs text-slate-500">학생 작성 페이지</p>
+                      <p className="text-xs text-slate-500">주제 사이드바</p>
                     </div>
                   </div>
                   <CardDescription className="text-sm leading-6">
                     {board.subtitle}
                   </CardDescription>
                 </CardHeader>
+
                 <CardContent className="space-y-4 px-5 py-5">
                   <div className="grid gap-3">
                     <div className="rounded-[1.5rem] bg-slate-50 px-4 py-3 ring-1 ring-slate-200/70">
@@ -103,13 +112,13 @@ export default async function StudentWritePage({ params }: StudentWritePageProps
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="rounded-[1.5rem] bg-white px-4 py-3 ring-1 ring-slate-200/70">
-                        <p className="text-xs font-medium text-slate-500">응답 수</p>
+                        <p className="text-xs font-medium text-slate-500">공유 글</p>
                         <p className="mt-1 text-lg font-semibold text-slate-900">
                           {activeTopicSummary?.responseCount ?? 0}
                         </p>
                       </div>
                       <div className="rounded-[1.5rem] bg-white px-4 py-3 ring-1 ring-slate-200/70">
-                        <p className="text-xs font-medium text-slate-500">최근 갱신</p>
+                        <p className="text-xs font-medium text-slate-500">최근 글</p>
                         <p className="mt-1 text-sm font-semibold text-slate-900">
                           {formatKoreanDateTime(
                             activeTopicSummary?.latestResponseAt ?? setupState.boardUpdatedAt
@@ -118,11 +127,12 @@ export default async function StudentWritePage({ params }: StudentWritePageProps
                       </div>
                     </div>
                   </div>
+
                   <div className="space-y-3">
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">주제 목록</p>
+                      <p className="text-sm font-semibold text-slate-900">주제 선택</p>
                       <p className="text-xs text-slate-500">
-                        왼쪽에서 주제를 바꾸면 작성 화면이 바로 바뀝니다.
+                        왼쪽 목록에서 주제를 바꾸면 공유 보드가 바로 바뀝니다.
                       </p>
                     </div>
                     <TopicNavigation
@@ -137,23 +147,23 @@ export default async function StudentWritePage({ params }: StudentWritePageProps
           </aside>
 
           <main className="space-y-6">
-            <header className="flex items-center justify-between gap-4 rounded-[2rem] border border-white/70 bg-white/88 px-5 py-5 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur">
+            <header className="flex items-center justify-between gap-4 rounded-[2rem] border border-white/70 bg-white/92 px-5 py-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] backdrop-blur">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="secondary" className="rounded-full bg-slate-900 text-white">
-                    학생 글쓰기
+                    공유 보드
                   </Badge>
                   <Badge variant="outline" className="rounded-full border-slate-200 bg-white">
-                    {board.facilitator}
+                    댓글과 하트 가능
                   </Badge>
                 </div>
                 <div>
                   <h1 className="text-xl font-semibold tracking-tight text-slate-950 md:text-2xl">
-                    생각을 정리하고 제출하는 공간
+                    우리 반이 함께 보는 카드 보드
                   </h1>
                   <p className="text-sm leading-6 text-slate-600 md:text-base">
-                    다른 학생 글은 보이지 않고, 교사는 제출된 생각만 대시보드에서
-                    확인합니다.
+                    글을 올리면 바로 아래 보드에 공개되고, 친구들도 하트와 댓글로
+                    반응할 수 있습니다.
                   </p>
                 </div>
               </div>
@@ -175,7 +185,7 @@ export default async function StudentWritePage({ params }: StudentWritePageProps
                   <SheetHeader className="border-b border-slate-200/80 px-5 py-4">
                     <SheetTitle>주제 선택</SheetTitle>
                     <SheetDescription>
-                      작성할 주제를 고른 뒤 오른쪽 화면에서 생각을 정리해 보세요.
+                      보드에 참여할 주제를 고른 뒤 같은 화면에서 글을 남겨 보세요.
                     </SheetDescription>
                   </SheetHeader>
                   <div className="p-5">
@@ -189,7 +199,17 @@ export default async function StudentWritePage({ params }: StudentWritePageProps
               </Sheet>
             </header>
 
-            <Card className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/92 py-0 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur">
+            {!setupState.interactionsReady ? (
+              <Alert variant="destructive">
+                <AlertTitle>댓글과 하트 기능이 아직 준비되지 않았습니다</AlertTitle>
+                <AlertDescription>
+                  현재 글 읽기와 작성은 가능하지만 댓글과 하트 저장 테이블이 아직
+                  연결되지 않았습니다.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            <Card className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/94 py-0 shadow-[0_24px_70px_rgba(15,23,42,0.08)] backdrop-blur">
               <CardHeader className="gap-5 border-b border-slate-200/80 px-6 py-6">
                 <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                   <div className="space-y-4">
@@ -218,14 +238,14 @@ export default async function StudentWritePage({ params }: StudentWritePageProps
                   </div>
 
                   <div className="rounded-[1.75rem] bg-amber-50 px-5 py-5 text-sm leading-6 text-amber-950 ring-1 ring-amber-100 xl:max-w-sm">
-                    <p className="text-sm font-semibold">생각을 여는 질문</p>
+                    <p className="text-sm font-semibold">시작 질문</p>
                     <p className="mt-2 text-amber-900/90">{topic.guidingQuestion}</p>
                   </div>
                 </div>
               </CardHeader>
 
               <CardContent className="grid gap-4 px-6 py-6 md:grid-cols-3">
-                {writingChecklist.map((item) => (
+                {boardTips.map((item) => (
                   <div
                     key={item.title}
                     className="rounded-[1.75rem] bg-slate-50 px-5 py-5 ring-1 ring-slate-200/70"
@@ -244,32 +264,52 @@ export default async function StudentWritePage({ params }: StudentWritePageProps
               </CardContent>
             </Card>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card className="rounded-[2rem] border border-white/70 bg-white/88 py-0 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
-                <CardHeader className="px-5 py-5">
-                  <CardTitle className="text-base">이렇게 쓰면 더 읽기 쉽습니다</CardTitle>
-                  <CardDescription className="text-sm leading-6">
-                    입장, 이유, 예시를 나눠 쓰면 교사가 학생 생각의 흐름을 훨씬 쉽게
-                    파악할 수 있습니다.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-              <Card className="rounded-[2rem] border border-white/70 bg-white/88 py-0 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
-                <CardHeader className="px-5 py-5">
-                  <CardTitle className="text-base">익명 제출 안내</CardTitle>
-                  <CardDescription className="text-sm leading-6">
-                    실명 대신 별칭을 써도 됩니다. 중요한 것은 누가 썼는지보다 어떤
-                    생각을 남겼는지입니다.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            </div>
-
             <SubmissionForm
               topicId={topic.id}
               topicTitle={topic.title}
               submissionsEnabled={setupState.submissionsReady}
             />
+
+            <section className="space-y-4">
+              <div className="flex flex-col gap-3 rounded-[2rem] border border-white/70 bg-white/92 px-5 py-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-950">모두의 카드 보드</h3>
+                  <p className="text-sm text-slate-600">
+                    같은 주제에 대해 친구들이 남긴 생각과 반응을 한눈에 볼 수 있습니다.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-3 text-sm">
+                  <div className="rounded-full bg-slate-100 px-4 py-2 text-slate-700">
+                    글 {responses.length}
+                  </div>
+                  <div className="rounded-full bg-rose-50 px-4 py-2 text-rose-700">
+                    하트 {totalHeartCount}
+                  </div>
+                  <div className="rounded-full bg-amber-50 px-4 py-2 text-amber-700">
+                    댓글 {totalCommentCount}
+                  </div>
+                </div>
+              </div>
+
+              {responses.length === 0 ? (
+                <Card className="rounded-[2rem] border border-dashed border-slate-300 bg-white/70 py-0">
+                  <CardContent className="px-6 py-12 text-center text-sm text-slate-500">
+                    아직 이 주제에 올라온 글이 없습니다. 첫 글을 올려 보세요.
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4 xl:grid-cols-2">
+                  {responses.map((response) => (
+                    <BoardResponseCard
+                      key={response.id}
+                      topicId={topic.id}
+                      response={response}
+                      interactionsEnabled={setupState.interactionsReady}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
           </main>
         </div>
       </div>

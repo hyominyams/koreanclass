@@ -5,6 +5,7 @@ import {
   flattenSeedResponses,
   getBoardMeta,
   getSeedResponses,
+  type BoardComment,
   type ResponseItem,
   type TopicSummary,
 } from "@/lib/discussions";
@@ -18,16 +19,45 @@ type SubmissionRow = {
   id: string;
   topic_id: string;
   author_name: string;
+  grade_class: string | null;
   perspective: string;
   content: string;
   submitted_at: string;
 };
 
+type CommentRow = {
+  id: string;
+  submission_id: string;
+  commenter_name: string;
+  commenter_grade_class: string | null;
+  content: string;
+  created_at: string;
+};
+
+type HeartRow = {
+  id: string;
+  submission_id: string;
+};
+
 export type SubmissionInput = {
   topicId: string;
   authorName: string;
-  perspective: string;
+  gradeClass: string;
   content: string;
+  perspective?: string;
+};
+
+export type CommentInput = {
+  topicId: string;
+  submissionId: string;
+  commenterName: string;
+  commenterGradeClass: string;
+  content: string;
+};
+
+export type HeartInput = {
+  topicId: string;
+  submissionId: string;
 };
 
 export type SubmissionRecord = ResponseItem & {
@@ -38,6 +68,7 @@ export type SetupState = {
   supabaseConfigured: boolean;
   topicsReady: boolean;
   submissionsReady: boolean;
+  interactionsReady: boolean;
   boardUpdatedAt: string;
 };
 
@@ -51,22 +82,93 @@ function extractKeywords(content: string, perspective: string) {
   return [...new Set(tokens)].slice(0, 5);
 }
 
-function mapRowToRecord(row: SubmissionRow): SubmissionRecord {
+function mapCommentRow(row: CommentRow): BoardComment {
   return {
     id: row.id,
-    topicId: row.topic_id,
-    author: row.author_name,
-    perspective: row.perspective,
+    submissionId: row.submission_id,
+    author: row.commenter_name,
+    gradeClass: row.commenter_grade_class?.trim() || "6학년 1반",
     content: row.content,
-    keywords: extractKeywords(row.content, row.perspective),
-    submittedAt: row.submitted_at,
+    createdAt: row.created_at,
   };
+}
+
+function buildSubmissionRecords(
+  submissionRows: SubmissionRow[],
+  commentRows: CommentRow[],
+  heartRows: HeartRow[]
+): SubmissionRecord[] {
+  const commentsBySubmission = new Map<string, BoardComment[]>();
+  const heartCountBySubmission = new Map<string, number>();
+
+  commentRows.forEach((row) => {
+    const comment = mapCommentRow(row);
+    const list = commentsBySubmission.get(comment.submissionId) ?? [];
+    list.push(comment);
+    commentsBySubmission.set(comment.submissionId, list);
+  });
+
+  heartRows.forEach((row) => {
+    heartCountBySubmission.set(
+      row.submission_id,
+      (heartCountBySubmission.get(row.submission_id) ?? 0) + 1
+    );
+  });
+
+  return submissionRows.map((row) => {
+    const comments =
+      commentsBySubmission
+        .get(row.id)
+        ?.sort(
+          (left, right) =>
+            new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+        ) ?? [];
+
+    return {
+      id: row.id,
+      topicId: row.topic_id,
+      author: row.author_name,
+      gradeClass: row.grade_class?.trim() || "6학년 1반",
+      perspective: row.perspective,
+      content: row.content,
+      keywords: extractKeywords(row.content, row.perspective),
+      submittedAt: row.submitted_at,
+      heartCount: heartCountBySubmission.get(row.id) ?? 0,
+      commentCount: comments.length,
+      comments,
+    };
+  });
 }
 
 function getFallbackRecords() {
   return flattenSeedResponses().map((response) => ({
     ...response,
   }));
+}
+
+async function fetchInteractionRows(client: ReturnType<typeof createSupabaseAdminClient>, submissionIds: string[]) {
+  if (!client || submissionIds.length === 0) {
+    return {
+      commentRows: [] as CommentRow[],
+      heartRows: [] as HeartRow[],
+    };
+  }
+
+  const [commentsResult, heartsResult] = await Promise.all([
+    client
+      .from("submission_comments")
+      .select(
+        "id, submission_id, commenter_name, commenter_grade_class, content, created_at"
+      )
+      .in("submission_id", submissionIds)
+      .order("created_at", { ascending: true }),
+    client.from("submission_hearts").select("id, submission_id").in("submission_id", submissionIds),
+  ]);
+
+  return {
+    commentRows: commentsResult.error ? [] : (commentsResult.data satisfies CommentRow[]),
+    heartRows: heartsResult.error ? [] : (heartsResult.data satisfies HeartRow[]),
+  };
 }
 
 export async function getTopicResponses(topicId: string) {
@@ -88,7 +190,7 @@ export async function getTopicResponses(topicId: string) {
 
   const { data, error } = await client
     .from("submissions")
-    .select("id, topic_id, author_name, perspective, content, submitted_at")
+    .select("id, topic_id, author_name, grade_class, perspective, content, submitted_at")
     .eq("topic_id", topicId)
     .order("submitted_at", { ascending: false });
 
@@ -97,18 +199,22 @@ export async function getTopicResponses(topicId: string) {
     return getSeedResponses(topicId);
   }
 
-  return (data satisfies SubmissionRow[]).map((row) => {
-    const record = mapRowToRecord(row);
+  const submissionRows = data satisfies SubmissionRow[];
+  const submissionIds = submissionRows.map((row) => row.id);
+  const { commentRows, heartRows } = await fetchInteractionRows(client, submissionIds);
 
-    return {
-      id: record.id,
-      author: record.author,
-      perspective: record.perspective,
-      content: record.content,
-      keywords: record.keywords,
-      submittedAt: record.submittedAt,
-    };
-  });
+  return buildSubmissionRecords(submissionRows, commentRows, heartRows).map((record) => ({
+    id: record.id,
+    author: record.author,
+    gradeClass: record.gradeClass,
+    perspective: record.perspective,
+    content: record.content,
+    keywords: record.keywords,
+    submittedAt: record.submittedAt,
+    heartCount: record.heartCount,
+    commentCount: record.commentCount,
+    comments: record.comments,
+  }));
 }
 
 export async function getTopicSummariesFromSource(): Promise<TopicSummary[]> {
@@ -126,7 +232,7 @@ export async function getTopicSummariesFromSource(): Promise<TopicSummary[]> {
 
   const { data, error } = await client
     .from("submissions")
-    .select("id, topic_id, author_name, perspective, content, submitted_at")
+    .select("id, topic_id, author_name, grade_class, perspective, content, submitted_at")
     .order("submitted_at", { ascending: false });
 
   if (error) {
@@ -135,9 +241,9 @@ export async function getTopicSummariesFromSource(): Promise<TopicSummary[]> {
   }
 
   const groupedRows = new Map<string, SubmissionRecord[]>();
+  const records = buildSubmissionRecords(data satisfies SubmissionRow[], [], []);
 
-  (data satisfies SubmissionRow[]).forEach((row) => {
-    const record = mapRowToRecord(row);
+  records.forEach((record) => {
     const list = groupedRows.get(record.topicId) ?? [];
     list.push(record);
     groupedRows.set(record.topicId, list);
@@ -149,10 +255,14 @@ export async function getTopicSummariesFromSource(): Promise<TopicSummary[]> {
       (groupedRows.get(topic.id) ?? []).map((record) => ({
         id: record.id,
         author: record.author,
+        gradeClass: record.gradeClass,
         perspective: record.perspective,
         content: record.content,
         keywords: record.keywords,
         submittedAt: record.submittedAt,
+        heartCount: record.heartCount,
+        commentCount: record.commentCount,
+        comments: record.comments,
       }))
     )
   );
@@ -176,7 +286,7 @@ export async function getAdminSubmissions(filters?: {
 
   let query = client
     .from("submissions")
-    .select("id, topic_id, author_name, perspective, content, submitted_at")
+    .select("id, topic_id, author_name, grade_class, perspective, content, submitted_at")
     .order("submitted_at", { ascending: false });
 
   if (filters?.topicId) {
@@ -196,7 +306,11 @@ export async function getAdminSubmissions(filters?: {
     return applySubmissionFilters(fallbackRecords, filters);
   }
 
-  return (data satisfies SubmissionRow[]).map(mapRowToRecord);
+  const submissionRows = data satisfies SubmissionRow[];
+  const submissionIds = submissionRows.map((row) => row.id);
+  const { commentRows, heartRows } = await fetchInteractionRows(client, submissionIds);
+
+  return buildSubmissionRecords(submissionRows, commentRows, heartRows);
 }
 
 function applySubmissionFilters(
@@ -232,7 +346,7 @@ export async function createSubmission(input: SubmissionInput) {
   if (!isSupabaseConfigured()) {
     return {
       ok: false,
-      message: "Supabase 연결 정보가 없어 제출을 저장할 수 없습니다.",
+      message: "Supabase 연결 정보가 없어 글을 저장할 수 없습니다.",
     };
   }
 
@@ -248,7 +362,8 @@ export async function createSubmission(input: SubmissionInput) {
   const { error } = await client.from("submissions").insert({
     topic_id: input.topicId,
     author_name: input.authorName.trim(),
-    perspective: input.perspective.trim(),
+    grade_class: input.gradeClass.trim() || "6학년 1반",
+    perspective: input.perspective?.trim() || "학생 의견",
     content: input.content.trim(),
   });
 
@@ -264,13 +379,88 @@ export async function createSubmission(input: SubmissionInput) {
 
     return {
       ok: false,
-      message: "응답을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      message: "글을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     };
   }
 
   return {
     ok: true,
-    message: `${topic.title} 주제에 생각을 제출했습니다.`,
+    message: `${topic.title} 보드에 글을 올렸습니다.`,
+  };
+}
+
+export async function createComment(input: CommentInput) {
+  if (!isSupabaseConfigured()) {
+    return {
+      ok: false,
+      message: "Supabase 연결 정보가 없어 댓글을 저장할 수 없습니다.",
+    };
+  }
+
+  const client = createSupabaseAdminClient();
+
+  if (!client) {
+    return {
+      ok: false,
+      message: "Supabase 클라이언트를 초기화하지 못했습니다.",
+    };
+  }
+
+  const { error } = await client.from("submission_comments").insert({
+    submission_id: input.submissionId,
+    commenter_name: input.commenterName.trim(),
+    commenter_grade_class: input.commenterGradeClass.trim() || "6학년 1반",
+    content: input.content.trim(),
+  });
+
+  if (error) {
+    console.error("Failed to create a comment in Supabase.", error);
+
+    return {
+      ok: false,
+      message: "댓글을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    };
+  }
+
+  return {
+    ok: true,
+    message: "댓글이 등록되었습니다.",
+  };
+}
+
+export async function addHeart(input: HeartInput) {
+  if (!isSupabaseConfigured()) {
+    return {
+      ok: false,
+      message: "Supabase 연결 정보가 없어 하트를 저장할 수 없습니다.",
+    };
+  }
+
+  const client = createSupabaseAdminClient();
+
+  if (!client) {
+    return {
+      ok: false,
+      message: "Supabase 클라이언트를 초기화하지 못했습니다.",
+    };
+  }
+
+  const { error } = await client.from("submission_hearts").insert({
+    submission_id: input.submissionId,
+  });
+
+  if (error) {
+    console.error("Failed to create a heart in Supabase.", error);
+
+    return {
+      ok: false,
+      message: "하트를 남기지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    };
+  }
+
+  return {
+    ok: true,
+    message: "하트를 남겼습니다.",
   };
 }
 
@@ -282,6 +472,7 @@ export async function getSetupState(): Promise<SetupState> {
       supabaseConfigured: false,
       topicsReady: false,
       submissionsReady: false,
+      interactionsReady: false,
       boardUpdatedAt: getBoardMeta().updatedAt,
     };
   }
@@ -293,19 +484,23 @@ export async function getSetupState(): Promise<SetupState> {
       supabaseConfigured: false,
       topicsReady: false,
       submissionsReady: false,
+      interactionsReady: false,
       boardUpdatedAt: getBoardMeta().updatedAt,
     };
   }
 
-  const [topicsResult, submissionsResult] = await Promise.all([
+  const [topicsResult, submissionsResult, commentsResult, heartsResult] = await Promise.all([
     client.from("topics").select("id", { head: true, count: "exact" }),
     client.from("submissions").select("id", { head: true, count: "exact" }),
+    client.from("submission_comments").select("id", { head: true, count: "exact" }),
+    client.from("submission_hearts").select("id", { head: true, count: "exact" }),
   ]);
 
   return {
     supabaseConfigured: true,
     topicsReady: !topicsResult.error,
     submissionsReady: !submissionsResult.error,
+    interactionsReady: !commentsResult.error && !heartsResult.error,
     boardUpdatedAt: getBoardMeta().updatedAt,
   };
 }

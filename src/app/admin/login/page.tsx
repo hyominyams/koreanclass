@@ -28,12 +28,12 @@ export default async function AdminLoginPage() {
           </div>
           <CardTitle className="text-xl tracking-tight">교사 관리자 로그인</CardTitle>
           <CardDescription className="text-sm leading-6">
-            학생 작성 페이지와 분리된 교사 전용 화면입니다. 여기에서만 주제를
-            추가하고 제출 내용을 확인할 수 있습니다.
+            학생 공유 보드와 분리된 교사 전용 화면입니다. 여기에서만 주제를 추가하고
+            전체 보드 활동을 확인할 수 있습니다.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5 px-6 py-6">
-          {!isAdminConfigured() && (
+          {!isAdminConfigured() ? (
             <Alert variant="destructive">
               <TriangleAlert className="size-4" />
               <AlertTitle>관리자 환경변수가 필요합니다</AlertTitle>
@@ -41,7 +41,7 @@ export default async function AdminLoginPage() {
                 `ADMIN_PASSWORD`와 `ADMIN_SECRET` 값을 먼저 설정해 주세요.
               </AlertDescription>
             </Alert>
-          )}
+          ) : null}
           <AdminLoginForm />
         </CardContent>
       </Card>
