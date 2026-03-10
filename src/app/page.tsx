@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 
-import { getFirstTopicId } from "@/lib/discussions";
+import { getFirstTopicIdFromSource } from "@/lib/topics";
 
-export default function Home() {
-  const firstTopicId = getFirstTopicId();
+export default async function Home() {
+  const firstTopicId = await getFirstTopicIdFromSource();
 
   if (!firstTopicId) {
     return null;

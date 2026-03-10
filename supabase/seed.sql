@@ -1,50 +1,26 @@
-insert into public.submissions (topic_id, author_name, group_name, perspective, content, submitted_at)
-values
-  (
-    'uniform-policy',
-    '김민준',
-    '1모둠',
-    '자율성 확대',
-    '교복이 꼭 같아야만 질서가 생긴다고 생각하지 않아요. 기본 기준만 두고 학생이 선택할 수 있게 하면 학교생활 만족도도 올라갈 것 같아요.',
-    '2026-03-09T10:14:00+09:00'
-  ),
-  (
-    'uniform-policy',
-    '박서연',
-    '2모둠',
-    '형평성 우선',
-    '자율화가 되면 오히려 옷 때문에 비교가 심해질 수 있어요. 경제적 차이가 드러나지 않게 어느 정도 통일성은 유지해야 한다고 생각해요.',
-    '2026-03-09T10:19:00+09:00'
-  ),
-  (
-    'ai-feedback',
-    '정유진',
-    '4모둠',
-    '학습 보조',
-    '맞춤형 피드백을 빠르게 받을 수 있다는 점은 좋아요. 초안 단계에서 부족한 부분을 확인하는 용도로 쓰면 공부에 도움이 된다고 생각해요.',
-    '2026-03-08T09:42:00+09:00'
-  ),
-  (
-    'ai-feedback',
-    '한서우',
-    '5모둠',
-    '교사 역할 유지',
-    '피드백의 방향을 잡아 주는 사람은 여전히 교사여야 해요. AI는 반복 설명이나 예시 제안은 잘하지만 학생의 태도 변화까지 보긴 어렵잖아요.',
-    '2026-03-08T09:55:00+09:00'
-  ),
-  (
-    'school-festival',
-    '오지민',
-    '2모둠',
-    '체험형 확대',
-    '공연만 보는 시간이 길어서 아쉬워요. 직접 만들거나 참여할 수 있는 체험 부스가 더 많아지면 학생들이 훨씬 적극적으로 움직일 것 같아요.',
-    '2026-03-07T13:21:00+09:00'
-  ),
-  (
-    'school-festival',
-    '배수아',
-    '3모둠',
-    '학생 주도 기획',
-    '행사 구성을 선생님이 거의 정하면 학생이 주인공이라는 느낌이 적어요. 기획단이 진짜로 예산과 순서를 제안할 수 있어야 해요.',
-    '2026-03-07T13:27:00+09:00'
-  );
+insert into public.topics (
+  id,
+  title,
+  category,
+  prompt,
+  summary,
+  guiding_question,
+  tags
+)
+values (
+  'example-topic',
+  '[예시] 새 주제를 추가해 보세요',
+  '예시',
+  '교사 계정에서 새 주제를 등록하면 학생 화면 왼쪽 사이드바에 실제 수업 주제가 바로 나타납니다.',
+  '교사가 실제 수업용 주제를 추가하기 전까지 보여 주는 기본 예시 카드입니다.',
+  '학생이 부담 없이 생각을 시작할 수 있도록 어떤 질문으로 열어 주면 좋을까요?',
+  array['예시', '관리자 추가']
+)
+on conflict (id) do update
+set
+  title = excluded.title,
+  category = excluded.category,
+  prompt = excluded.prompt,
+  summary = excluded.summary,
+  guiding_question = excluded.guiding_question,
+  tags = excluded.tags;

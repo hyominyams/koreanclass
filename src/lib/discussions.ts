@@ -3,7 +3,6 @@ import rawBoardData from "@/content/discussions.json";
 export type BoardMeta = {
   title: string;
   subtitle: string;
-  className: string;
   facilitator: string;
   updatedAt: string;
 };
@@ -11,7 +10,6 @@ export type BoardMeta = {
 export type ResponseItem = {
   id: string;
   author: string;
-  group: string;
   perspective: string;
   content: string;
   keywords: string[];

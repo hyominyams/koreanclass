@@ -5,18 +5,19 @@ import {
   flattenSeedResponses,
   getBoardMeta,
   getSeedResponses,
-  getTopicById,
-  getTopicDefinitions,
   type ResponseItem,
   type TopicSummary,
 } from "@/lib/discussions";
 import { createSupabaseAdminClient, isSupabaseConfigured } from "@/lib/supabase";
+import {
+  getTopicByIdFromSource,
+  getTopicDefinitionsFromSource,
+} from "@/lib/topics";
 
 type SubmissionRow = {
   id: string;
   topic_id: string;
   author_name: string;
-  group_name: string | null;
   perspective: string;
   content: string;
   submitted_at: string;
@@ -25,7 +26,6 @@ type SubmissionRow = {
 export type SubmissionInput = {
   topicId: string;
   authorName: string;
-  groupName?: string;
   perspective: string;
   content: string;
 };
@@ -36,6 +36,7 @@ export type SubmissionRecord = ResponseItem & {
 
 export type SetupState = {
   supabaseConfigured: boolean;
+  topicsReady: boolean;
   submissionsReady: boolean;
   boardUpdatedAt: string;
 };
@@ -47,7 +48,7 @@ function extractKeywords(content: string, perspective: string) {
     .map((token) => token.trim())
     .filter((token) => token.length >= 2);
 
-  return [...new Set(tokens)].slice(0, 4);
+  return [...new Set(tokens)].slice(0, 5);
 }
 
 function mapRowToRecord(row: SubmissionRow): SubmissionRecord {
@@ -55,7 +56,6 @@ function mapRowToRecord(row: SubmissionRow): SubmissionRecord {
     id: row.id,
     topicId: row.topic_id,
     author: row.author_name,
-    group: row.group_name ?? "자유 참여",
     perspective: row.perspective,
     content: row.content,
     keywords: extractKeywords(row.content, row.perspective),
@@ -70,7 +70,9 @@ function getFallbackRecords() {
 }
 
 export async function getTopicResponses(topicId: string) {
-  if (!getTopicById(topicId)) {
+  const topic = await getTopicByIdFromSource(topicId);
+
+  if (!topic) {
     return [];
   }
 
@@ -86,7 +88,7 @@ export async function getTopicResponses(topicId: string) {
 
   const { data, error } = await client
     .from("submissions")
-    .select("id, topic_id, author_name, group_name, perspective, content, submitted_at")
+    .select("id, topic_id, author_name, perspective, content, submitted_at")
     .eq("topic_id", topicId)
     .order("submitted_at", { ascending: false });
 
@@ -101,7 +103,6 @@ export async function getTopicResponses(topicId: string) {
     return {
       id: record.id,
       author: record.author,
-      group: record.group,
       perspective: record.perspective,
       content: record.content,
       keywords: record.keywords,
@@ -111,7 +112,7 @@ export async function getTopicResponses(topicId: string) {
 }
 
 export async function getTopicSummariesFromSource(): Promise<TopicSummary[]> {
-  const topics = getTopicDefinitions();
+  const topics = await getTopicDefinitionsFromSource();
 
   if (!isSupabaseConfigured()) {
     return topics.map((topic) => buildTopicSummary(topic, topic.responses));
@@ -125,7 +126,7 @@ export async function getTopicSummariesFromSource(): Promise<TopicSummary[]> {
 
   const { data, error } = await client
     .from("submissions")
-    .select("id, topic_id, author_name, group_name, perspective, content, submitted_at")
+    .select("id, topic_id, author_name, perspective, content, submitted_at")
     .order("submitted_at", { ascending: false });
 
   if (error) {
@@ -148,7 +149,6 @@ export async function getTopicSummariesFromSource(): Promise<TopicSummary[]> {
       (groupedRows.get(topic.id) ?? []).map((record) => ({
         id: record.id,
         author: record.author,
-        group: record.group,
         perspective: record.perspective,
         content: record.content,
         keywords: record.keywords,
@@ -176,7 +176,7 @@ export async function getAdminSubmissions(filters?: {
 
   let query = client
     .from("submissions")
-    .select("id, topic_id, author_name, group_name, perspective, content, submitted_at")
+    .select("id, topic_id, author_name, perspective, content, submitted_at")
     .order("submitted_at", { ascending: false });
 
   if (filters?.topicId) {
@@ -220,19 +220,19 @@ function applySubmissionFilters(
 }
 
 export async function createSubmission(input: SubmissionInput) {
-  const topic = getTopicById(input.topicId);
+  const topic = await getTopicByIdFromSource(input.topicId);
 
   if (!topic) {
     return {
       ok: false,
-      message: "존재하지 않는 주제입니다.",
+      message: "선택한 주제를 찾을 수 없습니다.",
     };
   }
 
   if (!isSupabaseConfigured()) {
     return {
       ok: false,
-      message: "Supabase 연결 정보가 아직 설정되지 않았습니다.",
+      message: "Supabase 연결 정보가 없어 제출을 저장할 수 없습니다.",
     };
   }
 
@@ -241,16 +241,15 @@ export async function createSubmission(input: SubmissionInput) {
   if (!client) {
     return {
       ok: false,
-      message: "Supabase 클라이언트를 초기화할 수 없습니다.",
+      message: "Supabase 클라이언트를 초기화하지 못했습니다.",
     };
   }
 
   const { error } = await client.from("submissions").insert({
     topic_id: input.topicId,
-    author_name: input.authorName,
-    group_name: input.groupName?.trim() || null,
-    perspective: input.perspective,
-    content: input.content,
+    author_name: input.authorName.trim(),
+    perspective: input.perspective.trim(),
+    content: input.content.trim(),
   });
 
   if (error) {
@@ -259,21 +258,19 @@ export async function createSubmission(input: SubmissionInput) {
     if (error.code === "PGRST205") {
       return {
         ok: false,
-        message:
-          "Supabase submissions 테이블이 아직 준비되지 않았습니다. 관리자에게 schema.sql 적용을 요청해 주세요.",
+        message: "submissions 테이블이 아직 준비되지 않았습니다. 관리자에게 migration 적용을 요청해 주세요.",
       };
     }
 
     return {
       ok: false,
-      message:
-        "Supabase 저장에 실패했습니다. 테이블 생성과 환경 변수를 다시 확인해 주세요.",
+      message: "응답을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     };
   }
 
   return {
     ok: true,
-    message: `${topic.title} 주제에 의견이 저장됐습니다.`,
+    message: `${topic.title} 주제에 생각을 제출했습니다.`,
   };
 }
 
@@ -283,6 +280,7 @@ export async function getSetupState(): Promise<SetupState> {
   if (!supabaseConfigured) {
     return {
       supabaseConfigured: false,
+      topicsReady: false,
       submissionsReady: false,
       boardUpdatedAt: getBoardMeta().updatedAt,
     };
@@ -293,19 +291,21 @@ export async function getSetupState(): Promise<SetupState> {
   if (!client) {
     return {
       supabaseConfigured: false,
+      topicsReady: false,
       submissionsReady: false,
       boardUpdatedAt: getBoardMeta().updatedAt,
     };
   }
 
-  const { error } = await client.from("submissions").select("id", {
-    head: true,
-    count: "exact",
-  });
+  const [topicsResult, submissionsResult] = await Promise.all([
+    client.from("topics").select("id", { head: true, count: "exact" }),
+    client.from("submissions").select("id", { head: true, count: "exact" }),
+  ]);
 
   return {
     supabaseConfigured: true,
-    submissionsReady: !error,
+    topicsReady: !topicsResult.error,
+    submissionsReady: !submissionsResult.error,
     boardUpdatedAt: getBoardMeta().updatedAt,
   };
 }

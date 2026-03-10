@@ -1,5 +1,3 @@
-create extension if not exists pgcrypto;
-
 create table if not exists public.topics (
   id text primary key,
   title text not null,
@@ -15,26 +13,9 @@ create table if not exists public.topics (
 create index if not exists topics_created_at_idx
   on public.topics (created_at asc);
 
-create table if not exists public.submissions (
-  id uuid primary key default gen_random_uuid(),
-  topic_id text not null references public.topics (id) on delete cascade,
-  author_name text not null check (char_length(author_name) between 1 and 24),
-  perspective text not null check (char_length(perspective) between 1 and 32),
-  content text not null check (char_length(content) between 10 and 1200),
-  submitted_at timestamptz not null default now()
-);
-
-create index if not exists submissions_topic_id_submitted_at_idx
-  on public.submissions (topic_id, submitted_at desc);
-
-create index if not exists submissions_submitted_at_idx
-  on public.submissions (submitted_at desc);
-
 alter table public.topics enable row level security;
-alter table public.submissions enable row level security;
 
 grant select on public.topics to anon, authenticated;
-grant insert on public.submissions to anon, authenticated;
 
 drop policy if exists "service role full access topics" on public.topics;
 create policy "service role full access topics"
@@ -48,19 +29,6 @@ create policy "public read topics"
   on public.topics
   for select
   using (true);
-
-drop policy if exists "service role full access submissions" on public.submissions;
-create policy "service role full access submissions"
-  on public.submissions
-  for all
-  using (auth.role() = 'service_role')
-  with check (auth.role() = 'service_role');
-
-drop policy if exists "public insert submissions" on public.submissions;
-create policy "public insert submissions"
-  on public.submissions
-  for insert
-  with check (true);
 
 insert into public.topics (
   id,

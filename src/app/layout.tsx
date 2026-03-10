@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "생각 나누기 보드",
+  title: "생각 정리 보드",
   description:
-    "학생은 링크로 바로 글을 쓰고, 교사는 주제별·날짜별로 생각 나누기 결과를 모아보는 웹앱",
+    "학생은 익명으로 생각을 정리해 제출하고, 교사는 별도 대시보드에서 주제와 응답을 관리하는 수업용 보드입니다.",
 };
 
 export default function RootLayout({

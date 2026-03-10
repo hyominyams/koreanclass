@@ -20,26 +20,25 @@ export default async function AdminLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.18),transparent_32%),linear-gradient(180deg,#f7f4ed_0%,#ffffff_55%,#f4f7fb_100%)] px-4 py-10">
-      <Card className="w-full max-w-md rounded-[2rem] border border-white/70 bg-background/90 py-0 shadow-sm backdrop-blur">
-        <CardHeader className="border-b px-6 py-6">
-          <div className="mb-3 inline-flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,rgba(15,23,42,0.12),transparent_26%),radial-gradient(circle_at_bottom,rgba(14,116,144,0.12),transparent_28%),linear-gradient(180deg,#f4f0e8_0%,#fbfaf7_52%,#edf3f7_100%)] px-4 py-10">
+      <Card className="w-full max-w-md overflow-hidden rounded-[2rem] border border-white/70 bg-white/92 py-0 shadow-[0_24px_80px_rgba(15,23,42,0.10)] backdrop-blur">
+        <CardHeader className="border-b border-slate-200/80 px-6 py-6">
+          <div className="mb-4 inline-flex size-12 items-center justify-center rounded-2xl bg-slate-900 text-white">
             <ShieldCheck className="size-6" />
           </div>
-          <CardTitle>교사용 관리 화면</CardTitle>
-          <CardDescription>
-            학생은 링크로 바로 쓰고, 교사는 비밀번호로만 모아보기 화면에
-            들어갑니다.
+          <CardTitle className="text-xl tracking-tight">교사 관리자 로그인</CardTitle>
+          <CardDescription className="text-sm leading-6">
+            학생 작성 페이지와 분리된 교사 전용 화면입니다. 여기에서만 주제를
+            추가하고 제출 내용을 확인할 수 있습니다.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5 px-6 py-6">
           {!isAdminConfigured() && (
             <Alert variant="destructive">
               <TriangleAlert className="size-4" />
-              <AlertTitle>관리자 비밀번호 설정 필요</AlertTitle>
+              <AlertTitle>관리자 환경변수가 필요합니다</AlertTitle>
               <AlertDescription>
-                `.env.local`에 `ADMIN_PASSWORD`와 `ADMIN_SECRET`을 먼저 넣어
-                주세요.
+                `ADMIN_PASSWORD`와 `ADMIN_SECRET` 값을 먼저 설정해 주세요.
               </AlertDescription>
             </Alert>
           )}

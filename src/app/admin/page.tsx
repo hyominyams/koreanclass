@@ -1,7 +1,17 @@
 import Link from "next/link";
-import { CalendarRange, LogOut, ShieldCheck, TriangleAlert } from "lucide-react";
+import {
+  CalendarRange,
+  LayoutDashboard,
+  LogOut,
+  PanelLeftOpen,
+  SquareArrowOutUpRight,
+  TriangleAlert,
+} from "lucide-react";
 
 import { logoutAdminAction } from "@/app/actions";
+import { ResponseCard } from "@/components/response-card";
+import { TopicCreatorForm } from "@/components/topic-creator-form";
+import { TopicNavigation } from "@/components/topic-navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,18 +25,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requireAdmin } from "@/lib/admin-auth";
-import {
-  formatKoreanDate,
-  formatKoreanDateTime,
-  getBoardMeta,
-  getFirstTopicId,
-  getTopicById,
-} from "@/lib/discussions";
+import { formatKoreanDate, getBoardMeta } from "@/lib/discussions";
 import {
   getAdminSubmissions,
   getSetupState,
   getTopicSummariesFromSource,
 } from "@/lib/submissions";
+import { getFirstTopicIdFromSource } from "@/lib/topics";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -38,8 +43,19 @@ type AdminPageProps = {
   }>;
 };
 
-function getTopicLabel(topicId: string) {
-  return getTopicById(topicId)?.title ?? topicId;
+function buildAdminHref(topicId?: string, date?: string) {
+  const params = new URLSearchParams();
+
+  if (topicId) {
+    params.set("topic", topicId);
+  }
+
+  if (date) {
+    params.set("date", date);
+  }
+
+  const query = params.toString();
+  return query.length > 0 ? `/admin?${query}` : "/admin";
 }
 
 export default async function AdminPage({ searchParams }: AdminPageProps) {
@@ -47,21 +63,24 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
 
   const params = await searchParams;
   const board = getBoardMeta();
-  const studentPageHref = `/write/${getFirstTopicId() ?? ""}`;
   const selectedTopicId =
     typeof params.topic === "string" && params.topic.length > 0 ? params.topic : "all";
   const selectedDate =
     typeof params.date === "string" && params.date.length > 0 ? params.date : "";
 
-  const [topicSummaries, submissions] = await Promise.all([
+  const [topicSummaries, submissions, setupState, firstTopicId] = await Promise.all([
     getTopicSummariesFromSource(),
     getAdminSubmissions({
       topicId: selectedTopicId === "all" ? undefined : selectedTopicId,
       date: selectedDate || undefined,
     }),
+    getSetupState(),
+    getFirstTopicIdFromSource(),
   ]);
-  const { supabaseConfigured, submissionsReady } = await getSetupState();
 
+  const studentPageHref = firstTopicId ? `/write/${firstTopicId}` : "/";
+  const topicMap = new Map(topicSummaries.map((topic) => [topic.id, topic]));
+  const activeTopicId = selectedTopicId === "all" ? "" : selectedTopicId;
   const groupedSubmissions = submissions.reduce<Map<string, typeof submissions>>(
     (groups, submission) => {
       const label = formatKoreanDate(submission.submittedAt);
@@ -73,197 +92,260 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     new Map()
   );
 
+  const uniqueTopicCount = new Set(submissions.map((item) => item.topicId)).size;
+  const uniqueAuthorCount = new Set(submissions.map((item) => item.author)).size;
+
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.16),transparent_28%),linear-gradient(180deg,#f5f7fb_0%,#ffffff_52%,#f8f5ed_100%)]">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-5 md:px-6 lg:px-8 lg:py-8">
-        <header className="flex flex-col gap-4 rounded-3xl border border-white/70 bg-background/90 px-5 py-5 shadow-sm backdrop-blur md:flex-row md:items-center md:justify-between">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary" className="rounded-full">
-                관리자 모드
-              </Badge>
-              <Badge variant="outline" className="rounded-full">
-                {board.className}
-              </Badge>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(15,23,42,0.10),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(14,116,144,0.14),transparent_30%),linear-gradient(180deg,#f3f1eb_0%,#fbfaf7_48%,#edf3f7_100%)]">
+      <div className="mx-auto max-w-7xl px-4 py-5 md:px-6 lg:px-8 lg:py-8">
+        <div className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
+          <aside className="hidden lg:block">
+            <div className="sticky top-8 space-y-4">
+              <Card className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/90 py-0 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur">
+                <CardHeader className="border-b border-slate-200/70 px-5 py-5">
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-slate-900 text-white">
+                      <LayoutDashboard className="size-5" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">교사 대시보드</p>
+                      <p className="text-xs text-slate-500">{board.title}</p>
+                    </div>
+                  </div>
+                  <CardDescription className="text-sm leading-6">
+                    주제 목록, 학생 제출 현황, 새 주제 추가를 한 곳에서 관리합니다.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4 px-5 py-5">
+                  <div className="grid gap-3">
+                    <Link
+                      href={studentPageHref}
+                      className="inline-flex items-center justify-between rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-100"
+                    >
+                      학생 화면 열기
+                      <SquareArrowOutUpRight className="size-4" />
+                    </Link>
+                    <form action={logoutAdminAction}>
+                      <Button type="submit" variant="outline" className="w-full rounded-[1.5rem]">
+                        <LogOut className="size-4" />
+                        로그아웃
+                      </Button>
+                    </form>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">주제 사이드바</p>
+                        <p className="text-xs text-slate-500">
+                          주제를 선택하면 오른쪽 목록이 바로 필터링됩니다.
+                        </p>
+                      </div>
+                      <PanelLeftOpen className="size-4 text-slate-400" />
+                    </div>
+
+                    <Link
+                      href={buildAdminHref(undefined, selectedDate || undefined)}
+                      className={cn(
+                        "flex items-center justify-between rounded-[1.25rem] border px-4 py-3 text-sm transition-colors",
+                        selectedTopicId === "all"
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                      )}
+                    >
+                      전체 주제 보기
+                      <Badge
+                        variant={selectedTopicId === "all" ? "secondary" : "outline"}
+                        className={cn(
+                          "rounded-full",
+                          selectedTopicId === "all"
+                            ? "border-white/10 bg-white/10 text-white"
+                            : "border-slate-200 bg-white text-slate-600"
+                        )}
+                      >
+                        {topicSummaries.length}
+                      </Badge>
+                    </Link>
+
+                    <TopicNavigation
+                      topics={topicSummaries}
+                      activeTopicId={activeTopicId}
+                      getHref={(topicId) =>
+                        buildAdminHref(topicId, selectedDate || undefined)
+                      }
+                    />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
-                {board.title} 집계 화면
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                학생 글을 주제별, 날짜별로 필터링해서 바로 확인할 수 있습니다.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href={studentPageHref}
-              className="inline-flex rounded-full border border-border/70 bg-background/80 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-            >
-              공개 보드로 돌아가기
-            </Link>
-            <form action={logoutAdminAction}>
-              <Button type="submit" variant="outline" className="rounded-full">
-                <LogOut className="size-4" />
-                로그아웃
-              </Button>
-            </form>
-          </div>
-        </header>
+          </aside>
 
-        {!supabaseConfigured && (
-          <Alert variant="destructive">
-            <TriangleAlert className="size-4" />
-            <AlertTitle>Supabase 연결 정보가 없습니다</AlertTitle>
-            <AlertDescription>
-              현재는 개발용 시드 데이터로 보여주고 있습니다. 실제 학생 글 저장을
-              쓰려면 `.env.local`과 `supabase/schema.sql`을 먼저 적용해 주세요.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {supabaseConfigured && !submissionsReady && (
-          <Alert variant="destructive">
-            <TriangleAlert className="size-4" />
-            <AlertTitle>submissions 테이블이 아직 없습니다</AlertTitle>
-            <AlertDescription>
-              현재는 시드 데이터로만 보이고 있습니다. Supabase SQL Editor에서
-              `supabase/schema.sql`을 먼저 실행해야 실제 학생 작성이 저장됩니다.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <section className="grid gap-4 md:grid-cols-3">
-          <Card className="rounded-[2rem] py-0">
-            <CardHeader className="border-b px-5 py-5">
-              <CardDescription>현재 필터 결과</CardDescription>
-              <CardTitle>{submissions.length}개 응답</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card className="rounded-[2rem] py-0">
-            <CardHeader className="border-b px-5 py-5">
-              <CardDescription>응답이 있는 주제</CardDescription>
-              <CardTitle>
-                {new Set(submissions.map((submission) => submission.topicId)).size}개
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card className="rounded-[2rem] py-0">
-            <CardHeader className="border-b px-5 py-5">
-              <CardDescription>보이는 날짜 그룹</CardDescription>
-              <CardTitle>{groupedSubmissions.size}일</CardTitle>
-            </CardHeader>
-          </Card>
-        </section>
-
-        <Card className="rounded-[2rem] border border-white/70 bg-background/88 py-0 shadow-sm backdrop-blur">
-          <CardHeader className="border-b px-6 py-5">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="size-4 text-primary" />
-              <CardTitle>주제별·날짜별 필터</CardTitle>
-            </div>
-            <CardDescription>
-              원하는 주제와 날짜만 골라서 모아볼 수 있습니다.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-6 py-6">
-            <form className="grid gap-4 md:grid-cols-[1fr_220px_auto]">
-              <div className="space-y-2">
-                <Label htmlFor="topic">주제</Label>
-                <select
-                  id="topic"
-                  name="topic"
-                  defaultValue={selectedTopicId}
-                  className={cn(
-                    "h-10 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                  )}
-                >
-                  <option value="all">전체 주제</option>
-                  {topicSummaries.map((topic) => (
-                    <option key={topic.id} value={topic.id}>
-                      {topic.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="date">날짜</Label>
-                <Input id="date" name="date" type="date" defaultValue={selectedDate} />
-              </div>
-              <div className="flex items-end gap-2">
-                <Button type="submit" className="rounded-full">
-                  <CalendarRange className="size-4" />
-                  적용
-                </Button>
-                <Link
-                  href="/admin"
-                  className="inline-flex h-9 items-center rounded-full border border-border/70 px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-                >
-                  초기화
-                </Link>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
-        <section className="space-y-6">
-          {submissions.length === 0 ? (
-            <Card className="rounded-[2rem] border border-dashed border-border/80 bg-background/70">
-              <CardContent className="px-6 py-10 text-center text-sm text-muted-foreground">
-                선택한 조건에 맞는 학생 글이 없습니다.
-              </CardContent>
-            </Card>
-          ) : (
-            [...groupedSubmissions.entries()].map(([dateLabel, items]) => (
-              <div key={dateLabel} className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
+          <main className="space-y-6">
+            <header className="rounded-[2rem] border border-white/70 bg-white/90 px-5 py-5 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary" className="rounded-full bg-slate-900 text-white">
+                      관리자 전용
+                    </Badge>
+                    <Badge variant="outline" className="rounded-full border-slate-200 bg-white">
+                      {board.facilitator}
+                    </Badge>
+                  </div>
                   <div>
-                    <h2 className="text-lg font-semibold">{dateLabel}</h2>
-                    <p className="text-sm text-muted-foreground">
-                      이 날짜에 기록된 학생 응답 {items.length}개
+                    <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
+                      학생 제출을 읽고 주제를 관리하는 화면
+                    </h1>
+                    <p className="text-sm leading-6 text-slate-600 md:text-base">
+                      학생 화면과 분리된 교사 전용 대시보드입니다. 새 주제는 여기에서만
+                      추가됩니다.
                     </p>
                   </div>
                 </div>
-                <div className="grid gap-4 lg:grid-cols-2">
-                  {items.map((item) => (
-                    <Card key={item.id} className="rounded-[2rem] py-0">
-                      <CardHeader className="gap-3 border-b px-5 py-5">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant="secondary" className="rounded-full">
-                            {getTopicLabel(item.topicId)}
-                          </Badge>
-                          <Badge variant="outline" className="rounded-full">
-                            {item.perspective}
-                          </Badge>
-                        </div>
-                        <div>
-                          <CardTitle className="text-base">
-                            {item.author}
-                          </CardTitle>
-                          <CardDescription>
-                            {item.group} · {formatKoreanDateTime(item.submittedAt)}
-                          </CardDescription>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4 px-5 py-5">
-                        <p className="text-sm leading-7 text-foreground/90">
-                          {item.content}
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {item.keywords.map((keyword) => (
-                            <Badge key={keyword} variant="outline" className="rounded-full">
-                              #{keyword}
-                            </Badge>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                <div className="rounded-[1.5rem] bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200/70">
+                  마지막 기준 시각 {formatKoreanDate(board.updatedAt)}
                 </div>
               </div>
-            ))
-          )}
-        </section>
+            </header>
+
+            {!setupState.supabaseConfigured && (
+              <Alert variant="destructive">
+                <TriangleAlert className="size-4" />
+                <AlertTitle>Supabase 환경변수가 비어 있습니다</AlertTitle>
+                <AlertDescription>
+                  현재는 로컬 예시 데이터만 보입니다. Vercel 또는 로컬 환경에
+                  Supabase URL과 키를 먼저 설정해 주세요.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {setupState.supabaseConfigured && !setupState.topicsReady && (
+              <Alert variant="destructive">
+                <TriangleAlert className="size-4" />
+                <AlertTitle>topics 테이블이 아직 준비되지 않았습니다</AlertTitle>
+                <AlertDescription>
+                  새 주제 추가는 `topics` 테이블이 있어야 동작합니다. 마이그레이션이
+                  제대로 반영됐는지 확인해 주세요.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {setupState.supabaseConfigured && !setupState.submissionsReady && (
+              <Alert variant="destructive">
+                <TriangleAlert className="size-4" />
+                <AlertTitle>submissions 테이블이 아직 준비되지 않았습니다</AlertTitle>
+                <AlertDescription>
+                  학생 제출 저장은 `submissions` 테이블이 있어야 동작합니다.
+                  마이그레이션 상태를 확인해 주세요.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <section className="grid gap-4 md:grid-cols-3">
+              <Card className="rounded-[2rem] border border-white/70 bg-white/90 py-0 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+                <CardHeader className="px-5 py-5">
+                  <CardDescription>현재 필터 결과</CardDescription>
+                  <CardTitle className="text-2xl">{submissions.length}개 응답</CardTitle>
+                </CardHeader>
+              </Card>
+              <Card className="rounded-[2rem] border border-white/70 bg-white/90 py-0 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+                <CardHeader className="px-5 py-5">
+                  <CardDescription>응답이 있는 주제</CardDescription>
+                  <CardTitle className="text-2xl">{uniqueTopicCount}개 주제</CardTitle>
+                </CardHeader>
+              </Card>
+              <Card className="rounded-[2rem] border border-white/70 bg-white/90 py-0 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+                <CardHeader className="px-5 py-5">
+                  <CardDescription>참여한 별칭 수</CardDescription>
+                  <CardTitle className="text-2xl">{uniqueAuthorCount}명</CardTitle>
+                </CardHeader>
+              </Card>
+            </section>
+
+            <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_23rem]">
+              <TopicCreatorForm />
+
+              <Card className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/90 py-0 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+                <CardHeader className="border-b border-slate-200/80 px-6 py-6">
+                  <CardTitle className="text-xl tracking-tight">응답 필터</CardTitle>
+                  <CardDescription className="text-sm leading-6">
+                    특정 주제나 날짜만 골라서 학생 생각을 빠르게 모아 볼 수 있습니다.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="px-6 py-6">
+                  <form className="space-y-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="topic">주제</Label>
+                      <select
+                        id="topic"
+                        name="topic"
+                        defaultValue={selectedTopicId}
+                        className={cn(
+                          "flex h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                        )}
+                      >
+                        <option value="all">전체 주제</option>
+                        {topicSummaries.map((topic) => (
+                          <option key={topic.id} value={topic.id}>
+                            {topic.title}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="date">날짜</Label>
+                      <Input id="date" name="date" type="date" defaultValue={selectedDate} />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button type="submit" className="flex-1 rounded-full">
+                        <CalendarRange className="size-4" />
+                        필터 적용
+                      </Button>
+                      <Link
+                        href="/admin"
+                        className="inline-flex h-9 items-center justify-center rounded-full border border-slate-200 px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                      >
+                        초기화
+                      </Link>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            </section>
+
+            <section className="space-y-6">
+              {submissions.length === 0 ? (
+                <Card className="rounded-[2rem] border border-dashed border-slate-300 bg-white/70 py-0">
+                  <CardContent className="px-6 py-12 text-center text-sm text-slate-500">
+                    선택한 조건에 맞는 학생 응답이 아직 없습니다.
+                  </CardContent>
+                </Card>
+              ) : (
+                [...groupedSubmissions.entries()].map(([dateLabel, items]) => (
+                  <div key={dateLabel} className="space-y-3">
+                    <div>
+                      <h2 className="text-lg font-semibold text-slate-950">{dateLabel}</h2>
+                      <p className="text-sm text-slate-500">
+                        이 날짜에 제출된 학생 응답 {items.length}개
+                      </p>
+                    </div>
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      {items.map((item) => (
+                        <ResponseCard
+                          key={item.id}
+                          response={item}
+                          topicLabel={topicMap.get(item.topicId)?.title ?? item.topicId}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </section>
+          </main>
+        </div>
       </div>
     </div>
   );
