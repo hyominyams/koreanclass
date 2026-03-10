@@ -5,11 +5,6 @@ import { CheckCircle2, LoaderCircle, MessageSquarePlus, TriangleAlert } from "lu
 import { useFormStatus } from "react-dom";
 
 import { type ActionState, createCommentAction } from "@/app/actions";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 
 type CommentFormProps = {
   topicId: string;
@@ -21,18 +16,25 @@ const initialState: ActionState = {
   status: "idle",
 };
 
+const fieldClassName =
+  "w-full rounded-2xl border border-[#ecd8d2] bg-white px-4 py-3 text-sm text-[#5d4037] outline-none transition focus:border-[#f29cab] focus:ring-4 focus:ring-[#fde6eb] disabled:cursor-not-allowed disabled:bg-[#f7eeeb] disabled:text-[#b8a19a]";
+
 function CommentSubmitButton() {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" size="sm" className="rounded-full" disabled={pending}>
+    <button
+      type="submit"
+      className="inline-flex items-center justify-center gap-2 rounded-full bg-[#f598a8] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#ef8799] disabled:cursor-not-allowed disabled:bg-[#d9c5c1]"
+      disabled={pending}
+    >
       {pending ? (
         <LoaderCircle className="size-4 animate-spin" />
       ) : (
         <MessageSquarePlus className="size-4" />
       )}
-      {pending ? "등록 중" : "댓글 남기기"}
-    </Button>
+      {pending ? "등록 중..." : "댓글 남기기"}
+    </button>
   );
 }
 
@@ -47,55 +49,68 @@ export function CommentForm({ topicId, submissionId, enabled }: CommentFormProps
   }, [state.status]);
 
   return (
-    <form ref={formRef} action={formAction} className="space-y-3 rounded-[1.5rem] bg-slate-50 p-4 ring-1 ring-slate-200/70">
+    <form ref={formRef} action={formAction} className="space-y-4">
       <input type="hidden" name="topicId" value={topicId} />
       <input type="hidden" name="submissionId" value={submissionId} />
 
       {state.status !== "idle" ? (
-        <Alert variant={state.status === "error" ? "destructive" : "default"}>
+        <div
+          className={`flex items-start gap-3 rounded-[1.5rem] border px-4 py-3 text-sm leading-6 ${
+            state.status === "success"
+              ? "border-[#d6eadf] bg-[#eff9f3] text-[#4f7b61]"
+              : "border-[#f2cfd7] bg-[#fff1f4] text-[#9c5f6c]"
+          }`}
+        >
           {state.status === "success" ? (
-            <CheckCircle2 className="size-4" />
+            <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
           ) : (
-            <TriangleAlert className="size-4" />
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" />
           )}
-          <AlertTitle>
-            {state.status === "success" ? "댓글 등록 완료" : "댓글을 확인해 주세요"}
-          </AlertTitle>
-          <AlertDescription>{state.message}</AlertDescription>
-        </Alert>
+          <p>{state.message}</p>
+        </div>
       ) : null}
 
-      <div className="grid gap-3 md:grid-cols-[10rem_1fr]">
-        <div className="space-y-2">
-          <Label htmlFor={`comment-grade-${submissionId}`}>학년 반</Label>
-          <Input
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block">
+          <span className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-[#b08a80]">
+            학급 정보
+          </span>
+          <input
             id={`comment-grade-${submissionId}`}
             name="commenterGradeClass"
             defaultValue="6학년 1반"
+            className={fieldClassName}
             disabled={!enabled}
           />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`comment-name-${submissionId}`}>이름</Label>
-          <Input
+        </label>
+
+        <label className="block">
+          <span className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-[#b08a80]">
+            이름
+          </span>
+          <input
             id={`comment-name-${submissionId}`}
             name="commenterName"
-            placeholder="예: 박서준"
+            placeholder="댓글 작성자"
+            className={fieldClassName}
             disabled={!enabled}
           />
-        </div>
+        </label>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor={`comment-content-${submissionId}`}>댓글</Label>
-        <Textarea
+      <label className="block">
+        <span className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-[#b08a80]">
+          댓글
+        </span>
+        <textarea
           id={`comment-content-${submissionId}`}
           name="content"
-          className="min-h-24 resize-y"
-          placeholder="공감되는 부분이나 질문하고 싶은 점을 남겨 보세요."
+          rows={3}
+          className={`${fieldClassName} min-h-24 resize-y`}
+          placeholder="공감한 점이나 더 묻고 싶은 점을 남겨 보세요."
           disabled={!enabled}
         />
-      </div>
+      </label>
 
       <div className="flex justify-end">
         <CommentSubmitButton />

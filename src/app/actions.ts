@@ -91,6 +91,7 @@ const topicSchema = z.object({
 });
 
 const loginSchema = z.object({
+  email: z.string().trim().email("관리자 이메일을 올바르게 입력해 주세요."),
   password: z.string().min(1, "관리자 비밀번호를 입력해 주세요."),
 });
 
@@ -161,6 +162,7 @@ export async function createCommentAction(
   }
 
   revalidatePath(`/write/${parsed.data.topicId}`);
+  revalidatePath(`/topics/${parsed.data.topicId}`);
   revalidatePath("/admin");
 
   return {
@@ -182,6 +184,7 @@ export async function addHeartAction(formData: FormData) {
   await addHeart(parsed.data);
 
   revalidatePath(`/write/${parsed.data.topicId}`);
+  revalidatePath(`/topics/${parsed.data.topicId}`);
   revalidatePath("/admin");
 }
 
@@ -223,6 +226,7 @@ export async function createTopicAction(
   revalidatePath("/");
   revalidatePath("/admin");
   revalidatePath(`/write/${result.topicId}`);
+  revalidatePath(`/topics/${result.topicId}`);
 
   return {
     status: "success",
@@ -235,29 +239,33 @@ export async function loginAdminAction(
   formData: FormData
 ): Promise<ActionState> {
   const parsed = loginSchema.safeParse({
+    email: formData.get("email"),
     password: formData.get("password"),
   });
 
   if (!parsed.success) {
     return {
       status: "error",
-      message: parsed.error.issues[0]?.message ?? "비밀번호를 다시 확인해 주세요.",
+      message: parsed.error.issues[0]?.message ?? "로그인 정보를 다시 확인해 주세요.",
     };
   }
 
   if (!isAdminConfigured()) {
     return {
       status: "error",
-      message: "ADMIN_PASSWORD와 ADMIN_SECRET 환경변수를 먼저 설정해 주세요.",
+      message: "Supabase 환경변수를 먼저 설정해 주세요.",
     };
   }
 
-  const isLoggedIn = await loginAdmin(parsed.data.password);
+  const result = await loginAdmin(parsed.data.email, parsed.data.password);
 
-  if (!isLoggedIn) {
+  if (!result.ok) {
     return {
       status: "error",
-      message: "관리자 비밀번호가 올바르지 않습니다.",
+      message:
+        result.reason === "not_admin"
+          ? "관리자 권한이 없는 계정입니다."
+          : "아이디 또는 비밀번호가 올바르지 않습니다.",
     };
   }
 

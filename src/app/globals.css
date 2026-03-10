@@ -143,4 +143,22 @@
   select {
     background-color: color-mix(in oklab, white 88%, var(--color-background));
   }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #fdf8f5;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #f2c7cf;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #e9a6b2;
+  }
 }

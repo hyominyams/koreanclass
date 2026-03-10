@@ -78,7 +78,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     getFirstTopicIdFromSource(),
   ]);
 
-  const studentPageHref = firstTopicId ? `/write/${firstTopicId}` : "/";
+  const studentPageHref = firstTopicId ? `/topics/${firstTopicId}` : "/";
   const topicMap = new Map(topicSummaries.map((topic) => [topic.id, topic]));
   const activeTopicId = selectedTopicId === "all" ? "" : selectedTopicId;
   const groupedSubmissions = submissions.reduce<Map<string, typeof submissions>>(

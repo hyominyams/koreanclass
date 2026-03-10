@@ -10,41 +10,37 @@ import {
 import { useFormStatus } from "react-dom";
 
 import { type ActionState, submitResponseAction } from "@/app/actions";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 
 type SubmissionFormProps = {
   topicId: string;
   topicTitle: string;
   submissionsEnabled: boolean;
+  onSuccess?: () => void;
 };
 
 const initialState: ActionState = {
   status: "idle",
 };
 
+const fieldClassName =
+  "w-full rounded-2xl border border-[#ecd8d2] bg-[#fff7f5] px-4 py-3 text-sm text-[#5d4037] outline-none transition focus:border-[#f29cab] focus:bg-white focus:ring-4 focus:ring-[#fde6eb] disabled:cursor-not-allowed disabled:bg-[#f7eeeb] disabled:text-[#b8a19a]";
+
 function SubmitButton() {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" size="lg" className="rounded-full" disabled={pending}>
+    <button
+      type="submit"
+      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#f598a8] px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(245,152,168,0.28)] transition hover:bg-[#ef8799] disabled:cursor-not-allowed disabled:bg-[#d9c5c1] disabled:shadow-none"
+      disabled={pending}
+    >
       {pending ? (
         <LoaderCircle className="size-4 animate-spin" />
       ) : (
         <PencilLine className="size-4" />
       )}
-      {pending ? "게시 중" : "보드에 글 올리기"}
-    </Button>
+      {pending ? "게시 중..." : "게시물 올리기"}
+    </button>
   );
 }
 
@@ -52,6 +48,7 @@ export function SubmissionForm({
   topicId,
   topicTitle,
   submissionsEnabled,
+  onSuccess,
 }: SubmissionFormProps) {
   const [state, formAction] = useActionState(submitResponseAction, initialState);
   const formRef = useRef<HTMLFormElement>(null);
@@ -59,96 +56,100 @@ export function SubmissionForm({
   useEffect(() => {
     if (state.status === "success") {
       formRef.current?.reset();
+      onSuccess?.();
     }
-  }, [state.status]);
+  }, [onSuccess, state.status]);
 
   return (
-    <Card className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/92 py-0 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur">
-      <CardHeader className="border-b border-slate-200/80 px-6 py-6">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-          <div className="space-y-2">
-            <CardTitle className="text-xl tracking-tight">새 글 쓰기</CardTitle>
-            <CardDescription className="text-sm leading-6">
-              <span className="font-medium text-slate-900">{topicTitle}</span> 주제에 대한
-              생각을 보드에 바로 공유합니다.
-            </CardDescription>
-          </div>
-          <div className="rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-xs font-medium text-sky-900">
-            모두가 볼 수 있는 공유 글
+    <div className="space-y-5">
+      <div className="rounded-[1.5rem] border border-[#efd7d7] bg-[#fff5f4] px-4 py-3">
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#b08a80]">
+          현재 작성 주제
+        </p>
+        <p className="mt-1 text-sm font-semibold text-[#5d4037]">{topicTitle}</p>
+      </div>
+
+      {!submissionsEnabled ? (
+        <div className="flex items-start gap-3 rounded-[1.5rem] border border-[#f2cfd7] bg-[#fff1f4] px-4 py-4 text-sm leading-6 text-[#9c5f6c]">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+          <p>게시물 저장 설정이 아직 완료되지 않았습니다. 설정 후 다시 시도해 주세요.</p>
+        </div>
+      ) : null}
+
+      {state.status !== "idle" ? (
+        <div
+          className={`flex items-start gap-3 rounded-[1.5rem] border px-4 py-4 text-sm leading-6 ${
+            state.status === "success"
+              ? "border-[#d6eadf] bg-[#eff9f3] text-[#4f7b61]"
+              : "border-[#f2cfd7] bg-[#fff1f4] text-[#9c5f6c]"
+          }`}
+        >
+          {state.status === "success" ? (
+            <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+          ) : (
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+          )}
+          <div>
+            <p className="font-semibold">
+              {state.status === "success" ? "게시물이 등록되었습니다." : "입력 내용을 확인해 주세요."}
+            </p>
+            <p>{state.message}</p>
           </div>
         </div>
-      </CardHeader>
+      ) : null}
 
-      <CardContent className="space-y-5 px-6 py-6">
-        {!submissionsEnabled && (
-          <Alert variant="destructive">
-            <TriangleAlert className="size-4" />
-            <AlertTitle>게시판 저장이 아직 준비되지 않았습니다</AlertTitle>
-            <AlertDescription>
-              Supabase의 게시글 저장 테이블이 아직 연결되지 않았습니다. 관리자
-              화면에서 데이터 설정 상태를 확인해 주세요.
-            </AlertDescription>
-          </Alert>
-        )}
+      <form ref={formRef} action={formAction} className="space-y-6">
+        <input type="hidden" name="topicId" value={topicId} />
 
-        {state.status !== "idle" && (
-          <Alert variant={state.status === "error" ? "destructive" : "default"}>
-            {state.status === "success" ? (
-              <CheckCircle2 className="size-4" />
-            ) : (
-              <TriangleAlert className="size-4" />
-            )}
-            <AlertTitle>
-              {state.status === "success" ? "게시 완료" : "입력 확인이 필요합니다"}
-            </AlertTitle>
-            <AlertDescription>{state.message}</AlertDescription>
-          </Alert>
-        )}
-
-        <form ref={formRef} action={formAction} className="space-y-5">
-          <input type="hidden" name="topicId" value={topicId} />
-
-          <div className="grid gap-5 md:grid-cols-[12rem_1fr]">
-            <div className="space-y-2">
-              <Label htmlFor={`grade-class-${topicId}`}>학년 반</Label>
-              <Input
-                id={`grade-class-${topicId}`}
-                name="gradeClass"
-                defaultValue="6학년 1반"
-                disabled={!submissionsEnabled}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={`author-${topicId}`}>이름</Label>
-              <Input
-                id={`author-${topicId}`}
-                name="authorName"
-                placeholder="예: 김민지"
-                disabled={!submissionsEnabled}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor={`content-${topicId}`}>내 생각</Label>
-            <Textarea
-              id={`content-${topicId}`}
-              name="content"
-              className="min-h-44 resize-y"
-              placeholder="내 의견, 이유, 예시, 친구들에게 묻고 싶은 질문까지 자유롭게 적어 보세요."
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="block">
+            <span className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-[#b08a80]">
+              학급 정보
+            </span>
+            <input
+              id={`grade-class-${topicId}`}
+              name="gradeClass"
+              defaultValue="6학년 1반"
+              className={fieldClassName}
               disabled={!submissionsEnabled}
             />
-          </div>
+          </label>
 
-          <div className="flex flex-col gap-4 rounded-[1.5rem] bg-slate-50 px-5 py-4 ring-1 ring-slate-200/70 md:flex-row md:items-center md:justify-between">
-            <p className="text-sm leading-6 text-slate-600">
-              글을 올리면 아래 카드 보드에 바로 보이고, 다른 학생들도 댓글과 하트를
-              남길 수 있습니다.
-            </p>
-            <SubmitButton />
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+          <label className="block">
+            <span className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-[#b08a80]">
+              이름
+            </span>
+            <input
+              id={`author-${topicId}`}
+              name="authorName"
+              placeholder="본인의 이름"
+              className={fieldClassName}
+              disabled={!submissionsEnabled}
+            />
+          </label>
+        </div>
+
+        <label className="block">
+          <span className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-[#b08a80]">
+            내 생각
+          </span>
+          <textarea
+            id={`content-${topicId}`}
+            name="content"
+            rows={6}
+            className={`${fieldClassName} min-h-36 resize-y`}
+            placeholder="교실과 주제에 대해 제안하고 싶은 내용을 자유롭게 적어주세요."
+            disabled={!submissionsEnabled}
+          />
+        </label>
+
+        <div className="flex flex-col items-start justify-between gap-4 border-t border-[#f3e6e1] pt-4 sm:flex-row sm:items-center">
+          <p className="text-xs leading-5 text-[#aa8e84]">
+            비속어나 타인을 비방하는 글은 삭제될 수 있습니다.
+          </p>
+          <SubmitButton />
+        </div>
+      </form>
+    </div>
   );
 }
