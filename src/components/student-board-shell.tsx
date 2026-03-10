@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { Menu, MessageSquareText, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 
 import { BoardFeed } from "@/components/board-feed";
 import { FloatingSubmissionButton } from "@/components/floating-submission-button";
@@ -79,6 +79,17 @@ function getStoredProfile(): StudentProfile | null {
 
 function saveProfile(profile: StudentProfile) {
   window.localStorage.setItem(STUDENT_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+}
+
+function BrandMark() {
+  return (
+    <div className="relative flex size-12 shrink-0 flex-col justify-center gap-1.5 rounded-[1.1rem] bg-[#ff9eaa] px-3 shadow-sm">
+      <span className="h-1 rounded-full bg-white/95" />
+      <span className="h-1 rounded-full bg-white/85" />
+      <span className="h-1 rounded-full bg-white/75" />
+      <span className="absolute right-2 bottom-2 size-1.5 rounded-full bg-white/90" />
+    </div>
+  );
 }
 
 function StudentProfileCard({
@@ -343,15 +354,13 @@ export function StudentBoardShell({
     <>
       <div className="min-h-screen overflow-x-hidden bg-[#fdf8f5] text-[#5d4037] md:flex">
         <aside className="hidden w-64 shrink-0 border-r border-[#ffd1d1]/40 bg-white p-6 md:flex md:flex-col md:gap-8">
-          <div className="flex items-center gap-4">
-            <div className="flex size-12 items-center justify-center rounded-xl bg-[#ff9eaa] text-white shadow-sm">
-              <MessageSquareText className="size-7" />
-            </div>
-            <div>
-              <h1 className="text-[1.45rem] font-bold tracking-tight text-[#5d4037]">
+          <div className="flex items-start gap-4 rounded-[1.5rem] border border-[#f6e4df] bg-[#fffaf8] p-4">
+            <BrandMark />
+            <div className="min-w-0">
+              <h1 className="text-[1.5rem] font-bold tracking-tight text-[#5d4037]">
                 우리반 생각보드
               </h1>
-              <p className="mt-1 text-xs leading-5 text-[#8d6e63]">
+              <p className="mt-1 text-[0.78rem] leading-5 text-[#8d6e63]">
                 학생이 글을 쓰고, 다른 학생의 의견에 하트와 댓글을 남기며 함께 보는 공유 보드입니다.
               </p>
             </div>
@@ -377,9 +386,7 @@ export function StudentBoardShell({
             <div className="rounded-[1.5rem] border border-[#ffd1d1]/40 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-start gap-3">
-                  <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-[#ff9eaa] text-white shadow-sm">
-                    <MessageSquareText className="size-7" />
-                  </div>
+                  <BrandMark />
                   <div className="min-w-0">
                     <h1 className="text-xl font-bold tracking-tight text-[#5d4037]">
                       우리반 생각보드
@@ -461,9 +468,7 @@ export function StudentBoardShell({
           <aside className="absolute top-0 right-0 flex h-full w-[min(22rem,86vw)] flex-col gap-6 border-l border-[#ffd1d1]/40 bg-white p-5 shadow-[0_18px_40px_rgba(146,101,101,0.18)]">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-3">
-                <div className="flex size-12 items-center justify-center rounded-xl bg-[#ff9eaa] text-white shadow-sm">
-                  <MessageSquareText className="size-7" />
-                </div>
+                <BrandMark />
                 <div>
                   <p className="text-lg font-bold tracking-tight text-[#5d4037]">
                     우리반 생각보드
